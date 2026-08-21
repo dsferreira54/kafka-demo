@@ -1,0 +1,181 @@
+{{- if .Values.demoUi.enabled }}
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: demo-ui
+  namespace: {{ .Values.namespaces.kafka }}
+  labels:
+    app.kubernetes.io/name: demo-ui
+    app.kubernetes.io/part-of: kafka-demo
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/sync-wave: "60"
+spec:
+  lookupPolicy:
+    local: true
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: demo-ui
+  namespace: {{ .Values.namespaces.kafka }}
+  labels:
+    app.kubernetes.io/name: demo-ui
+    app.kubernetes.io/part-of: kafka-demo
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/sync-wave: "65"
+spec:
+  source:
+    type: Git
+    git:
+      uri: {{ .Values.repoUrl | quote }}
+      ref: main
+    contextDir: {{ .Values.demoUi.contextDir | quote }}
+  strategy:
+    type: Source
+    sourceStrategy:
+      from:
+        kind: ImageStreamTag
+        namespace: openshift
+        name: "nodejs:20-ubi9"
+      env:
+        - name: NPM_MIRROR
+          value: ""
+  output:
+    to:
+      kind: ImageStreamTag
+      name: demo-ui:latest
+  triggers:
+    - type: ConfigChange
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-ui
+  namespace: {{ .Values.namespaces.kafka }}
+  labels:
+    app.kubernetes.io/name: demo-ui
+    app.kubernetes.io/part-of: kafka-demo
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/sync-wave: "70"
+    image.openshift.io/triggers: >-
+      [{"from":{"kind":"ImageStreamTag","name":"demo-ui:latest"},"fieldPath":"spec.template.spec.containers[?(@.name==\"demo-ui\")].image"}]
+spec:
+  replicas: {{ .Values.demoUi.replicas }}
+  selector:
+    matchLabels:
+      app: demo-ui
+  template:
+    metadata:
+      labels:
+        app: demo-ui
+        app.kubernetes.io/name: demo-ui
+        app.kubernetes.io/part-of: kafka-demo
+    spec:
+      containers:
+        - name: demo-ui
+          image: " "
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          env:
+            - name: PRODUCER_URL
+              value: http://kafka-producer.{{ .Values.namespaces.kafka }}.svc:8080
+            - name: CONSUMER_URL
+              value: http://kafka-consumer.{{ .Values.namespaces.kafka }}.svc:8080
+            - name: KAFKA_CONNECT_URL
+              value: http://kafka-connect-connect-api.{{ .Values.namespaces.kafka }}.svc:8083
+            - name: APICURIO_URL
+              value: http://apicurio-registry-app-service.{{ .Values.namespaces.kafka }}.svc:8080
+            - name: KAFKA_BOOTSTRAP
+              value: kafka-cluster-kafka-bootstrap.{{ .Values.namespaces.kafka }}.svc:9092
+            - name: PG_HOST
+              value: postgresql.{{ .Values.namespaces.kafka }}.svc
+            - name: PG_DATABASE
+              value: {{ .Values.postgresql.database }}
+            - name: PG_USER
+              value: {{ .Values.postgresql.user }}
+            - name: PG_PASSWORD
+              value: demo-password-123
+            - name: ORACLE_USER
+              value: debezium
+            - name: ORACLE_PASSWORD
+              value: {{ .Values.oracle.password }}
+            - name: ORACLE_CONNSTR
+              value: oracle.{{ .Values.namespaces.kafka }}.svc:1521/FREEPDB1
+            - name: ARGOCD_URL
+              value: {{ printf "https://openshift-gitops-server-openshift-gitops.%s" .Values.ingressDomain | quote }}
+            - name: APICURIO_UI_URL
+              value: {{ printf "https://apicurio-ui.%s" .Values.ingressDomain | quote }}
+            - name: APICURIO_API_URL
+              value: {{ printf "https://apicurio-api.%s" .Values.ingressDomain | quote }}
+            - name: PRODUCER_EXT_URL
+              value: {{ printf "https://producer.%s" .Values.ingressDomain | quote }}
+            - name: CONSUMER_EXT_URL
+              value: {{ printf "https://consumer.%s" .Values.ingressDomain | quote }}
+          resources:
+            requests:
+              cpu: {{ .Values.demoUi.resources.requests.cpu | quote }}
+              memory: {{ .Values.demoUi.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ .Values.demoUi.resources.limits.cpu | quote }}
+              memory: {{ .Values.demoUi.resources.limits.memory | quote }}
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: demo-ui
+  namespace: {{ .Values.namespaces.kafka }}
+  labels:
+    app.kubernetes.io/name: demo-ui
+    app.kubernetes.io/part-of: kafka-demo
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/sync-wave: "70"
+spec:
+  selector:
+    app: demo-ui
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: demo-ui
+  namespace: {{ .Values.namespaces.kafka }}
+  labels:
+    app.kubernetes.io/name: demo-ui
+    app.kubernetes.io/part-of: kafka-demo
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/sync-wave: "75"
+spec:
+  host: {{ printf "demo.%s" .Values.ingressDomain | quote }}
+  to:
+    kind: Service
+    name: demo-ui
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+{{- end }}
