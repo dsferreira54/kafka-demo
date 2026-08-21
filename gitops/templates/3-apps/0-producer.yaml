@@ -1,0 +1,146 @@
+{{- if .Values.apps.producer.enabled }}
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: kafka-producer
+  namespace: {{ .Values.namespaces.kafka }}
+  labels:
+    app.kubernetes.io/name: kafka-producer
+    app.kubernetes.io/part-of: kafka-demo
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/sync-wave: "60"
+spec:
+  lookupPolicy:
+    local: true
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: kafka-producer
+  namespace: {{ .Values.namespaces.kafka }}
+  labels:
+    app.kubernetes.io/name: kafka-producer
+    app.kubernetes.io/part-of: kafka-demo
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/sync-wave: "65"
+spec:
+  source:
+    type: Git
+    git:
+      uri: {{ .Values.repoUrl | quote }}
+      ref: main
+    contextDir: {{ .Values.apps.producer.contextDir | quote }}
+  strategy:
+    type: Source
+    sourceStrategy:
+      from:
+        kind: ImageStreamTag
+        namespace: openshift
+        name: "ubi8-openjdk-21:1.18"
+  output:
+    to:
+      kind: ImageStreamTag
+      name: kafka-producer:latest
+  triggers:
+    - type: ConfigChange
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka-producer
+  namespace: {{ .Values.namespaces.kafka }}
+  labels:
+    app.kubernetes.io/name: kafka-producer
+    app.kubernetes.io/part-of: kafka-demo
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/sync-wave: "70"
+    image.openshift.io/triggers: >-
+      [{"from":{"kind":"ImageStreamTag","name":"kafka-producer:latest"},"fieldPath":"spec.template.spec.containers[?(@.name==\"kafka-producer\")].image"}]
+spec:
+  replicas: {{ .Values.apps.producer.replicas }}
+  selector:
+    matchLabels:
+      app: kafka-producer
+  template:
+    metadata:
+      labels:
+        app: kafka-producer
+        app.kubernetes.io/name: kafka-producer
+        app.kubernetes.io/part-of: kafka-demo
+    spec:
+      containers:
+        - name: kafka-producer
+          image: " "
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          env:
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: kafka-cluster-kafka-bootstrap.{{ .Values.namespaces.kafka }}.svc:9092
+          resources:
+            requests:
+              cpu: {{ .Values.apps.producer.resources.requests.cpu | quote }}
+              memory: {{ .Values.apps.producer.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ .Values.apps.producer.resources.limits.cpu | quote }}
+              memory: {{ .Values.apps.producer.resources.limits.memory | quote }}
+          readinessProbe:
+            httpGet:
+              path: /q/health/ready
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /q/health/live
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-producer
+  namespace: {{ .Values.namespaces.kafka }}
+  labels:
+    app.kubernetes.io/name: kafka-producer
+    app.kubernetes.io/part-of: kafka-demo
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/sync-wave: "70"
+spec:
+  selector:
+    app: kafka-producer
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: kafka-producer
+  namespace: {{ .Values.namespaces.kafka }}
+  labels:
+    app.kubernetes.io/name: kafka-producer
+    app.kubernetes.io/part-of: kafka-demo
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/sync-wave: "75"
+spec:
+  host: {{ printf "producer.%s" .Values.ingressDomain | quote }}
+  to:
+    kind: Service
+    name: kafka-producer
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+{{- end }}

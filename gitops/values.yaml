@@ -1,4 +1,5 @@
 ingressDomain: ""
+repoUrl: ""
 
 namespaces:
   kafka: kafka-demo
@@ -35,6 +36,24 @@ oracle:
 
 apps:
   producer:
-    enabled: false
+    enabled: true
+    replicas: 1
+    contextDir: apps/producer
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 512Mi
   consumer:
-    enabled: false
+    enabled: true
+    replicas: 1
+    contextDir: apps/consumer
+    resources:
+      requests:
+        cpu: 200m
+        memory: 256Mi
+      limits:
+        cpu: "1"
+        memory: 512Mi

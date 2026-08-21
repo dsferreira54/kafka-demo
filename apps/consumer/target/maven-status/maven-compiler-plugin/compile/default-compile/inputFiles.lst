@@ -1,0 +1,4 @@
+/home/david/workdir/kafka-demo-ws/kafka-demo/apps/consumer/src/main/java/com/redhat/demo/kafka/Order.java
+/home/david/workdir/kafka-demo-ws/kafka-demo/apps/consumer/src/main/java/com/redhat/demo/kafka/OrderConsumer.java
+/home/david/workdir/kafka-demo-ws/kafka-demo/apps/consumer/src/main/java/com/redhat/demo/kafka/OrderDeserializer.java
+/home/david/workdir/kafka-demo-ws/kafka-demo/apps/consumer/src/main/java/com/redhat/demo/kafka/OrderResource.java

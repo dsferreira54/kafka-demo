@@ -91,6 +91,8 @@ spec:
       parameters:
         - name: ingressDomain
           value: "${INGRESS_DOMAIN}"
+        - name: repoUrl
+          value: "${REPO_URL}"
   destination:
     server: https://kubernetes.default.svc
   syncPolicy:
