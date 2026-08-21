@@ -488,11 +488,60 @@ refactor: simplify <componente> template
 
 ## 13. Documentação
 
-- O `README.md` deve ser mantido atualizado com instruções de uso e estado atual do projeto.
-- Linguagem clara e acessível.
-- Documentar pré-requisitos, como executar o deploy, e como validar.
-- Incluir comandos de validação (ex.: `oc get pods`, `curl`, etc.).
-- Documentar decisões técnicas relevantes e trade-offs.
+O `README.md` é o ponto de entrada principal do repositório. Ele deve permitir que qualquer pessoa — mesmo sem contexto prévio — entenda o que a demo faz, como subir o ambiente e como apresentá-la.
+
+### 13.1 Seções obrigatórias do README.md
+
+O `README.md` deve conter **obrigatoriamente** as seguintes seções, nesta ordem:
+
+1. **Título e descrição** — Nome do projeto e resumo de 2-3 frases explicando o que é, para que serve e qual stack utiliza.
+2. **Arquitetura** — Diagrama ASCII ou Mermaid mostrando os componentes e suas conexões. Deve ser compreensível sem ler o resto do documento.
+3. **Pré-requisitos** — O que é necessário antes de executar (cluster, CLIs, acessos, credenciais).
+4. **Quick Start** — Passos mínimos para subir o ambiente do zero. No máximo 5 comandos.
+5. **Validação** — Como verificar que o ambiente está saudável após o deploy. Incluir comandos `oc` e `curl` com output esperado.
+6. **Credenciais e acessos** — Tabela com todas as URLs, usuários e senhas fictícias. Incluir links das Routes, ArgoCD, consoles e APIs.
+7. **Decisões técnicas** — Resumo das escolhas feitas durante a implementação e por quê. Referenciar a seção 33 do AGENTS.md para detalhes completos.
+8. **Limitações conhecidas** — O que esta POC não faz, o que é diferente de produção e quais workarounds existem.
+9. **Roteiro de demonstração** — Guia completo e cronológico para apresentar a demo (ver seção 13.2).
+
+### 13.2 Roteiro de demonstração
+
+O roteiro de demonstração é a seção mais importante do README para quem vai **apresentar** a demo para outra pessoa. Ele deve ser um guia passo a passo cronológico que qualquer pessoa possa seguir.
+
+Para **cada passo** do roteiro, documentar:
+
+- **O que abrir** — qual URL, console, terminal ou arquivo/YAML apresentar na tela.
+- **O que mostrar** — o que a audiência deve ver na tela (output esperado, dados, interface).
+- **O que explicar** — qual o valor, conceito ou insight sendo demonstrado naquele passo.
+
+O roteiro deve:
+
+- Seguir uma **ordem lógica** do mais básico ao mais avançado.
+- Incluir **links** e **comandos exatos** prontos para copiar e colar.
+- Cobrir **cenários de sucesso** e, quando aplicável, **cenários de falha controlada** (ex.: tentativa de registrar schema incompatível).
+- Finalizar com um **resumo** do que foi demonstrado.
+
+Estrutura sugerida do roteiro:
+
+1. Visão geral no ArgoCD (todos os componentes sincronizados).
+2. Kafka básico (produzir e consumir um evento).
+3. Explorar tópicos e partições.
+4. CDC PostgreSQL (INSERT, UPDATE, DELETE → eventos no Kafka).
+5. CDC Oracle (mesmo fluxo, diferente banco).
+6. Sink Connector (dados fluindo do Kafka para destino externo).
+7. Schema Registry (registrar, versionar, testar compatibilidade).
+8. Data Contracts (metadata, labels, políticas, falha controlada).
+9. Resumo e encerramento.
+
+### 13.3 Diretrizes gerais
+
+- Linguagem clara e acessível, em português.
+- Usar code blocks para todos os comandos e outputs.
+- Incluir `curl` com `-sk` para HTTPS com certificados auto-assinados.
+- Usar URLs reais (com domínio do cluster) nos exemplos quando disponíveis.
+- Preferir exemplos que possam ser executados imediatamente, sem adaptação.
+- Documentar credenciais fictícias explicitamente — nunca assumir que o leitor sabe.
+- Manter o README atualizado sempre que o estado da demo mudar.
 
 ---
 
