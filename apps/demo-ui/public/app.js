@@ -138,6 +138,15 @@ function eLink(url, text) { return `<a href="${url}" target="_blank" class="inli
 function inp(id, label, ph, val = '') { return `<div><label class="block text-xs font-medium text-gray-600 mb-1">${label}</label><input id="${id}" placeholder="${ph}" value="${val}" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none"></div>`; }
 function res(id) { return `<div id="${id}" class="hidden mt-3"></div>`; }
 
+function scenario(text) {
+  return `<div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-5 mb-5">
+    <div class="flex gap-3 items-start">
+      <span class="text-2xl pt-0.5">🏪</span>
+      <div class="text-sm text-gray-700 leading-relaxed">${text}</div>
+    </div>
+  </div>`;
+}
+
 function compCard(name, desc, emoji, c) {
   return `<div class="flex items-center gap-3 p-3 rounded-lg bg-${c}-50 border border-${c}-200"><span class="text-xl">${emoji}</span><div><p class="font-medium text-sm">${name}</p><p class="text-xs text-gray-500">${desc}</p></div></div>`;
 }
@@ -237,6 +246,8 @@ function renderKafka() {
   return `<div class="space-y-5 fade-in">
     <div><h2 class="text-2xl font-bold">Kafka: Produzir e Consumir</h2><p class="text-gray-500 mt-1">Demonstração do fluxo básico de mensageria: publicar um pedido via Producer e consumi-lo via Consumer.</p></div>
 
+    ${scenario('Quando um cliente da <strong>TechMart</strong> finaliza uma compra no e-commerce, o sistema de checkout precisa notificar em tempo real os serviços de <strong>fulfillment</strong> (separação e envio), <strong>estoque</strong> (reserva de produtos) e <strong>notificação</strong> (e-mail de confirmação). Aqui, o Producer representa o checkout publicando o pedido no Kafka, e o Consumer representa um desses serviços downstream processando o evento.')}
+
     ${flowDiagram([['Producer','📤','bg-blue-50 border-blue-200'],['Kafka','📨','bg-red-50 border-red-200'],['Consumer','📥','bg-green-50 border-green-200']])}
 
     ${card('Enviar Pedido', `
@@ -265,6 +276,8 @@ function renderTopics() {
   return `<div class="space-y-5 fade-in">
     <div><h2 class="text-2xl font-bold">Tópicos e Partições</h2><p class="text-gray-500 mt-1">Explorar os tópicos criados no cluster Kafka, incluindo tópicos de aplicação e tópicos de CDC.</p></div>
 
+    ${scenario('A <strong>TechMart</strong> processa milhares de pedidos por dia em horários de pico (Black Friday, por exemplo). As <strong>partições</strong> permitem que múltiplos consumidores processem pedidos em paralelo — cada instância do serviço de fulfillment lê de uma partição diferente. A <strong>chave</strong> do pedido (ID do cliente) garante que todos os pedidos de um mesmo cliente vão para a mesma partição, preservando a ordem de processamento.')}
+
     ${card('Tópicos do Cluster', `
       <div id="r-topics"><div class="flex items-center gap-2 text-gray-400 text-sm py-3"><span class="spinner"></span> Carregando tópicos...</div></div>
     `)}
@@ -284,9 +297,11 @@ function renderTopics() {
 // ── Generic CDC renderer ─────────────────────────────
 
 function cdcStep(opts) {
-  const { title, desc, dbLabel, dbEmoji, dbColor, apiBase, cdcTopic, tipText } = opts;
+  const { title, desc, dbLabel, dbEmoji, dbColor, apiBase, cdcTopic, tipText, scenarioText } = opts;
   return `<div class="space-y-5 fade-in">
     <div><h2 class="text-2xl font-bold">${title}</h2><p class="text-gray-500 mt-1">${desc}</p></div>
+
+    ${scenarioText ? scenario(scenarioText) : ''}
 
     ${flowDiagram([[dbLabel, dbEmoji, `bg-${dbColor}-50 border-${dbColor}-200`],['Debezium','🔄','bg-green-50 border-green-200'],['Kafka','📨','bg-red-50 border-red-200']])}
 
@@ -332,6 +347,7 @@ function renderPgCDC() {
     desc: 'Captura de mudanças no PostgreSQL via Debezium. Cada INSERT, UPDATE ou DELETE gera um evento no Kafka.',
     dbLabel: 'PostgreSQL', dbEmoji: '🐘', dbColor: 'indigo',
     apiBase: 'pg', cdcTopic: 'debezium.public.customers',
+    scenarioText: 'O <strong>PostgreSQL</strong> é o banco do e-commerce da <strong>TechMart</strong>, onde ficam os cadastros de clientes online. Quando a equipe de CRM atualiza um e-mail, o marketing cria uma segmentação ou o suporte corrige um endereço, essas mudanças precisam ser propagadas <strong>em tempo real</strong> para analytics, personalização e outros microsserviços — sem alterar o código da aplicação original. O Debezium resolve isso capturando cada operação diretamente do log de transações do banco.',
     tipText: '"O Debezium usa logical replication do PostgreSQL (pgoutput plugin) para capturar mudanças em tempo real. Cada operação no banco gera um evento com o tipo de operação (c=create, u=update, d=delete), os dados antes e depois, e metadados da origem."',
   });
 }
@@ -342,6 +358,7 @@ function renderOraCDC() {
     desc: 'Captura de mudanças no Oracle Database 23c via Debezium com LogMiner.',
     dbLabel: 'Oracle', dbEmoji: '🔶', dbColor: 'amber',
     apiBase: 'ora', cdcTopic: 'oracle.DEBEZIUM.CUSTOMERS',
+    scenarioText: 'O <strong>Oracle</strong> é o banco legado do ERP de lojas físicas da <strong>TechMart</strong>. Quando um vendedor cadastra ou atualiza um cliente no sistema da loja, essa informação fica "presa" no Oracle. Para construir uma <strong>visão unificada do cliente</strong> (loja + e-commerce), a TechMart precisa capturar essas mudanças sem modificar o ERP legado. O Debezium com LogMiner faz isso lendo diretamente os redo logs do Oracle.',
     tipText: '"O Debezium usa Oracle LogMiner para capturar mudanças, sem necessidade de triggers ou polling. O LogMiner lê os redo logs do banco e extrai as operações DML. É a mesma tecnologia usada pelo CDC em produção, mas aqui com Oracle 23c Free."',
   });
 }
@@ -351,6 +368,8 @@ function renderOraCDC() {
 function renderSink() {
   return `<div class="space-y-5 fade-in">
     <div><h2 class="text-2xl font-bold">Sink Connector</h2><p class="text-gray-500 mt-1">Dados fluem do Oracle via CDC para o Kafka e são escritos automaticamente no PostgreSQL pelo JDBC Sink Connector.</p></div>
+
+    ${scenario('Este é o cenário que a <strong>TechMart</strong> mais quer resolver: hoje, os clientes cadastrados nas <strong>lojas físicas</strong> (Oracle) só aparecem no <strong>e-commerce</strong> (PostgreSQL) após um batch noturno. Com o Sink Connector, essa replicação é <strong>automática e em tempo real</strong> — um cliente cadastrado na loja às 14h já pode fazer login no e-commerce às 14h01. Aqui demonstramos esse fluxo: Oracle → Debezium → Kafka → JDBC Sink → PostgreSQL.')}
 
     ${flowDiagram([['Oracle','🔶','bg-amber-50 border-amber-200'],['Debezium','🔄','bg-green-50 border-green-200'],['Kafka','📨','bg-red-50 border-red-200'],['JDBC Sink','⬇️','bg-teal-50 border-teal-200'],['PostgreSQL','🐘','bg-indigo-50 border-indigo-200']])}
 
@@ -376,6 +395,8 @@ function renderConnect() {
   return `<div class="space-y-5 fade-in">
     <div><h2 class="text-2xl font-bold">Kafka Connect</h2><p class="text-gray-500 mt-1">Visão operacional do cluster Kafka Connect e dos conectores configurados.</p></div>
 
+    ${scenario('A equipe de plataforma da <strong>TechMart</strong> é responsável por garantir que todas as integrações de dados estejam operacionais. Em um ambiente real, poderiam existir dezenas de conectores (CDC de vários bancos, sinks para data lakes, webhooks). Esta visão operacional mostra o <strong>status de cada conector e suas tasks</strong>, permitindo identificar rapidamente se alguma integração parou ou está degradada.')}
+
     ${flowDiagram([['Kafka Connect','🔌','bg-purple-50 border-purple-200'],['Connectors','🔗','bg-teal-50 border-teal-200'],['Tasks','⚙️','bg-gray-100 border-gray-300']])}
 
     ${liveCard('Conectores', `
@@ -391,6 +412,8 @@ function renderConnect() {
 function renderSchema() {
   return `<div class="space-y-5 fade-in">
     <div><h2 class="text-2xl font-bold">Schema Registry</h2><p class="text-gray-500 mt-1">Red Hat build of Apicurio Registry para registro, versionamento e validação de schemas.</p></div>
+
+    ${scenario('A <strong>TechMart</strong> tem múltiplas equipes produzindo e consumindo eventos: checkout, fulfillment, analytics, marketing. Sem um Schema Registry, cada equipe define seu próprio formato de dados — e quando alguém muda um campo, os consumidores quebram silenciosamente. O Apicurio Registry funciona como um <strong>contrato central</strong>: todos concordam sobre a estrutura dos dados, e qualquer mudança é versionada e validada antes de chegar à produção.')}
 
     ${card('Acesso Direto', `
       <div class="flex gap-3">
@@ -417,6 +440,8 @@ function renderSchema() {
 function renderContracts() {
   return `<div class="space-y-5 fade-in">
     <div><h2 class="text-2xl font-bold">Data Contracts</h2><p class="text-gray-500 mt-1">Demonstração de compatibilidade, metadata, políticas de evolução e falha controlada.</p></div>
+
+    ${scenario('A equipe de checkout da <strong>TechMart</strong> precisa adicionar um campo <code>discount</code> ao schema de pedidos. Mas o serviço de fulfillment ainda não foi atualizado para ler esse campo. O <strong>Data Contract</strong> com política BACKWARD garante que essa evolução é <strong>segura</strong>: adicionar um campo opcional não quebra consumidores antigos. Porém, se alguém tentar <strong>remover</strong> um campo obrigatório como <code>price</code>, o Registry rejeita — protegendo os consumidores de uma mudança destrutiva.')}
 
     ${card('1. Definir Política de Compatibilidade', `
       <p class="text-xs text-gray-500 mb-3">Configura regra BACKWARD no artifact <code class="bg-gray-100 px-1 rounded">demo-order</code>: novas versões devem ser retrocompatíveis.</p>
@@ -461,6 +486,8 @@ function renderSummary() {
   ];
   return `<div class="space-y-5 fade-in">
     <div><h2 class="text-2xl font-bold">Resumo da Demonstração</h2><p class="text-gray-500 mt-1">Tudo que foi demonstrado nesta POC.</p></div>
+
+    ${scenario('Com esta arquitetura, a <strong>TechMart</strong> conseguiu: substituir o batch noturno por <strong>replicação em tempo real</strong> entre Oracle e PostgreSQL; desacoplar o checkout dos serviços de fulfillment, estoque e notificação via <strong>pub/sub</strong>; capturar mudanças em ambos os bancos sem alterar as aplicações existentes (<strong>CDC</strong>); e garantir que a evolução dos formatos de dados seja <strong>governada e segura</strong> via Schema Registry e Data Contracts. Tudo isso rodando sobre o <strong>stack Red Hat</strong>, com suporte empresarial e integração nativa com OpenShift.')}
 
     ${card('Conceitos Demonstrados', `<div class="space-y-3">${items.map(([e, t, d]) =>
       `<div class="flex items-start gap-3 p-3 rounded-lg bg-gray-50"><span class="text-xl">${e}</span><div><p class="font-medium text-sm">${t}</p><p class="text-xs text-gray-500">${d}</p></div><span class="ml-auto text-green-500 text-lg">✓</span></div>`
