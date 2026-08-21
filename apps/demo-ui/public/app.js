@@ -37,6 +37,35 @@ const STEP_INIT = [
   null,
 ];
 
+// ── Time tracking ────────────────────────────────────
+
+const _seen = {};
+
+function trackSeen(ns, key) {
+  const k = `${ns}:${key}`;
+  if (!_seen[k]) _seen[k] = Date.now();
+  return _seen[k];
+}
+
+function timeAgo(ts) {
+  const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  if (s < 5) return 'agora';
+  if (s < 60) return `há ${s}s`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `há ${m}min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `há ${h}h`;
+  return `há ${Math.floor(h / 24)}d`;
+}
+
+function agoBadge(ts) {
+  const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  const text = timeAgo(ts);
+  if (s < 5) return `<span class="ago-badge ago-now">${text}</span>`;
+  if (s < 30) return `<span class="ago-badge ago-recent">${text}</span>`;
+  return `<span class="ago-badge ago-old">${text}</span>`;
+}
+
 // ── Helpers ──────────────────────────────────────────
 
 const $ = id => document.getElementById(id);
@@ -66,10 +95,13 @@ function showSpin(id) {
   setHtml(id, `<div class="flex items-center gap-2 text-gray-500 text-sm py-3"><span class="spinner"></span> Carregando...</div>`);
 }
 
-function showTable(id, headers, rows) {
+function showTable(id, headers, rows, rawCols) {
   if (!rows || !rows.length) return setHtml(id, '<p class="text-gray-500 italic text-sm py-2">Nenhum dado encontrado.</p>');
+  const raw = rawCols ? new Set(rawCols) : null;
   const ths = headers.map(h => `<th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">${h}</th>`).join('');
-  const trs = rows.map(r => `<tr class="hover:bg-gray-50">${r.map(c => `<td class="px-3 py-2 text-sm whitespace-nowrap">${c != null ? esc(String(c)) : '<span class="text-gray-300">null</span>'}</td>`).join('')}</tr>`).join('');
+  const trs = rows.map(r => `<tr class="hover:bg-gray-50">${r.map((c, ci) =>
+    `<td class="px-3 py-2 text-sm whitespace-nowrap">${raw && raw.has(ci) ? (c || '') : (c != null ? esc(String(c)) : '<span class="text-gray-300">null</span>')}</td>`
+  ).join('')}</tr>`).join('');
   setHtml(id, `<div class="overflow-x-auto rounded-lg border"><table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr>${ths}</tr></thead><tbody class="divide-y divide-gray-200">${trs}</tbody></table></div>`);
 }
 
@@ -426,8 +458,12 @@ async function loadOrders(silent = false) {
   if (!silent) showSpin('r-orders');
   try {
     const data = await api('/api/consumer/orders');
-    const rows = (Array.isArray(data) ? data : []).map(o => [o.orderId || '-', o.customerName, o.product, o.quantity, o.price]);
-    showTable('r-orders', ['ID', 'Cliente', 'Produto', 'Qtd', 'Preço'], rows);
+    const arr = Array.isArray(data) ? data : [];
+    const rows = arr.map(o => {
+      const ts = o.timestamp ? new Date(o.timestamp).getTime() : trackSeen('orders', o.orderId || o.customerName);
+      return [o.orderId || '-', o.customerName, o.product, o.quantity, o.price, agoBadge(ts)];
+    });
+    showTable('r-orders', ['ID', 'Cliente', 'Produto', 'Qtd', 'Preço', ''], rows, [5]);
     setHtml('r-count', `${rows.length} pedido(s)`);
   } catch (e) { if (!silent) showErr('r-orders', e.message); }
 }
@@ -507,10 +543,13 @@ async function cdcTable(base, silent = false) {
   if (!$(rid)) return;
   try {
     const data = await api(`/api/${base === 'pg' ? 'pg' : 'oracle'}/customers`);
-    const headers = base === 'pg' ? ['id','name','email','city'] : ['ID','NAME','EMAIL','CITY'];
-    const keys = headers;
-    const rows = data.map(r => keys.map(k => r[k]));
-    showTable(rid, headers, rows);
+    const cols = base === 'pg' ? ['id','name','email','city'] : ['ID','NAME','EMAIL','CITY'];
+    const ns = `${base}-cust`;
+    const rows = data.map(r => {
+      const ts = (base === 'pg' && r.created_at) ? new Date(r.created_at).getTime() : trackSeen(ns, r[cols[0]]);
+      return [...cols.map(k => r[k]), agoBadge(ts)];
+    });
+    showTable(rid, [...cols, ''], rows, [cols.length]);
   } catch (e) { if (!silent) showErr(rid, e.message); }
 }
 
@@ -524,8 +563,9 @@ async function cdcEvents(base, topic, silent = false) {
     const html = msgs.map(m => {
       let val = m.value;
       try { val = JSON.stringify(JSON.parse(m.value), null, 2); } catch (_) {}
+      const ts = m.timestamp ? parseInt(m.timestamp, 10) : trackSeen(`${base}-evt`, m.offset);
       return `<div class="mb-3 border rounded-lg overflow-hidden">
-        <div class="bg-gray-100 px-3 py-1.5 text-xs text-gray-600 flex gap-4"><span>Partição: ${m.partition}</span><span>Offset: ${m.offset}</span><span>Key: ${esc(m.key || 'null')}</span></div>
+        <div class="bg-gray-100 px-3 py-1.5 text-xs text-gray-600 flex items-center gap-4"><span>Partição: ${m.partition}</span><span>Offset: ${m.offset}</span><span>Key: ${esc(m.key || 'null')}</span><span class="ml-auto">${agoBadge(ts)}</span></div>
         <pre class="code text-xs" style="border-radius:0">${esc(val)}</pre>
       </div>`;
     }).join('');
@@ -540,8 +580,11 @@ async function sinkSource(silent = false) {
   if (!$(rid)) return;
   try {
     const data = await api('/api/oracle/customers');
-    const rows = data.map(r => [r.ID, r.NAME, r.EMAIL, r.CITY]);
-    showTable(rid, ['ID','Nome','Email','Cidade'], rows);
+    const rows = data.map(r => {
+      const ts = trackSeen('sink-src', r.ID);
+      return [r.ID, r.NAME, r.EMAIL, r.CITY, agoBadge(ts)];
+    });
+    showTable(rid, ['ID','Nome','Email','Cidade',''], rows, [4]);
   } catch (e) { if (!silent) showErr(rid, e.message); }
 }
 
@@ -551,8 +594,13 @@ async function sinkDest(silent = false) {
   try {
     const data = await api('/api/pg/oracle-customers');
     const keys = data.length ? Object.keys(data[0]) : [];
-    const rows = data.map(r => keys.map(k => r[k]));
-    showTable(rid, keys, rows);
+    const badgeCol = keys.length;
+    const rows = data.map(r => {
+      const id = r[keys[0]] || JSON.stringify(keys.map(k => r[k]));
+      const ts = trackSeen('sink-dst', id);
+      return [...keys.map(k => r[k]), agoBadge(ts)];
+    });
+    showTable(rid, [...keys, ''], rows, [badgeCol]);
   } catch (e) { if (!silent) showErr(rid, e.message); }
 }
 
@@ -637,8 +685,11 @@ async function listArtifacts() {
     const data = await api('/api/apicurio/search/artifacts?limit=50');
     const artifacts = data.artifacts || [];
     if (!artifacts.length) return setHtml(rid, '<p class="text-gray-500 italic text-sm">Nenhum artifact registrado.</p>');
-    const rows = artifacts.map(a => [a.artifactId, a.artifactType, a.name || '-', a.createdOn?.split('T')[0] || '-']);
-    showTable(rid, ['Artifact ID', 'Tipo', 'Nome', 'Criado em'], rows);
+    const rows = artifacts.map(a => {
+      const ts = a.createdOn ? new Date(a.createdOn).getTime() : trackSeen('artifacts', a.artifactId);
+      return [a.artifactId, a.artifactType, a.name || '-', agoBadge(ts)];
+    });
+    showTable(rid, ['Artifact ID', 'Tipo', 'Nome', ''], rows, [3]);
   } catch (e) { showErr(rid, e.message); }
 }
 
