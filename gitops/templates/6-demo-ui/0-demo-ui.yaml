@@ -178,4 +178,32 @@ spec:
   tls:
     termination: edge
     insecureEdgeTerminationPolicy: Redirect
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: demo-ui-to-kafka-connect
+  namespace: {{ .Values.namespaces.kafka }}
+  labels:
+    app.kubernetes.io/name: demo-ui
+    app.kubernetes.io/part-of: kafka-demo
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/sync-wave: "60"
+spec:
+  podSelector:
+    matchLabels:
+      strimzi.io/cluster: kafka-connect
+      strimzi.io/kind: KafkaConnect
+      strimzi.io/name: kafka-connect-connect
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: demo-ui
+      ports:
+        - port: 8083
+          protocol: TCP
 {{- end }}
