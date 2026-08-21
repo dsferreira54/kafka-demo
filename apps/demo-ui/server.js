@@ -239,8 +239,14 @@ app.post('/api/reset', async (_req, res) => {
   } catch (e) { log.push(`PostgreSQL customers: erro — ${e.message}`); }
 
   try {
-    await pgPool.query('DROP TABLE IF EXISTS oracle_customers');
-    log.push('PostgreSQL oracle_customers: tabela removida');
+    await pgPool.query(`CREATE TABLE IF NOT EXISTS oracle_customers (
+      id INTEGER PRIMARY KEY,
+      name VARCHAR(100),
+      email VARCHAR(150),
+      city VARCHAR(100)
+    )`);
+    await pgPool.query('DELETE FROM oracle_customers');
+    log.push('PostgreSQL oracle_customers: tabela limpa');
   } catch (e) { log.push(`PostgreSQL oracle_customers: erro — ${e.message}`); }
 
   try {
