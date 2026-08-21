@@ -175,8 +175,9 @@ app.get('/api/kafka/consume/:topic', async (req, res) => {
   try {
     await consumer.connect();
     await consumer.subscribe({ topic: req.params.topic, fromBeginning: true });
+    let idle;
     await new Promise(resolve => {
-      const t = setTimeout(resolve, 8000);
+      const t = setTimeout(resolve, 6000);
       consumer.run({
         eachMessage: async ({ partition, message }) => {
           msgs.push({
@@ -185,11 +186,13 @@ app.get('/api/kafka/consume/:topic', async (req, res) => {
             value: message.value?.toString(),
             timestamp: message.timestamp,
           });
-          if (msgs.length >= limit) { clearTimeout(t); resolve(); }
+          clearTimeout(idle);
+          idle = setTimeout(() => { clearTimeout(t); resolve(); }, 500);
         },
       });
     });
-    res.json(msgs);
+    msgs.sort((a, b) => parseInt(b.timestamp) - parseInt(a.timestamp));
+    res.json(msgs.slice(0, limit));
   } catch (e) { res.status(500).json({ error: e.message }); }
   finally { await consumer.disconnect().catch(() => {}); }
 });
