@@ -1,0 +1,21 @@
+{{- if .Values.apicurio.enabled }}
+apiVersion: registry.apicur.io/v1
+kind: ApicurioRegistry3
+metadata:
+  name: apicurio-registry
+  namespace: {{ .Values.namespaces.kafka }}
+  labels:
+    app.kubernetes.io/name: apicurio-registry
+    app.kubernetes.io/part-of: kafka-demo
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/sync-wave: "25"
+spec:
+  app:
+    ingress:
+      enabled: true
+    storage:
+      type: kafkasql
+      kafkasql:
+        bootstrapServers: kafka-cluster-kafka-bootstrap.{{ .Values.namespaces.kafka }}.svc:9092
+{{- end }}
