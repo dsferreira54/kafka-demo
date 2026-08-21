@@ -199,7 +199,7 @@ function renderOverview() {
       <div class="flex gap-4 items-start">
         <div class="text-3xl pt-1">🏪</div>
         <div class="text-sm text-gray-700 leading-relaxed space-y-2">
-          <p>A <strong>TechMart</strong> é uma rede varejista de eletrônicos que opera com dois sistemas de banco de dados: um <strong>PostgreSQL</strong> para o e-commerce (cadastro de clientes, carrinho, etc.) e um <strong>Oracle</strong> legado que gerencia o ERP de lojas físicas.</p>
+          <p>A <strong>TechMart</strong> é uma rede varejista de eletrônicos que opera com dois sistemas de banco de dados: um <strong>PostgreSQL</strong> para o e-commerce (cadastro de clientes, carrinho, etc.) e um <strong>Oracle</strong> legado que gerencia o ERP (Enterprise Resource Planning — sistema de gestão integrada) de lojas físicas.</p>
           <p>Hoje, a sincronização entre os dois bancos é feita por batch noturno, o que gera atrasos e inconsistências. A proposta é adotar uma <strong>arquitetura de streaming com Apache Kafka</strong> para capturar mudanças em tempo real (CDC), integrar os sistemas e garantir governança dos dados com schemas e contratos.</p>
           <p>Nesta POC, demonstramos como o <strong>stack Red Hat</strong> — Streams for Apache Kafka, Debezium, Apicurio Registry — resolve esse problema, desde a publicação de pedidos até a replicação cross-database e a evolução segura de schemas.</p>
         </div>
