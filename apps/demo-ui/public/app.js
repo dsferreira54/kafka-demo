@@ -1,4 +1,4 @@
-/* Kafka Streaming POC — Demo UI */
+/* Kafka Streaming Demo UI */
 
 let CFG = {};
 let step = 0;
@@ -247,7 +247,7 @@ function cfRow(confluent, redhat, badgeKey, note) {
       </div>
       <div class="cf-arrow">⇄</div>
       <div class="cf-side cf-side-right">
-        <div class="cf-side-icon">🎩 Red Hat (esta POC)</div>
+        <div class="cf-side-icon">🎩 Red Hat (esta demo)</div>
         <div class="cf-side-text">${redhat}</div>
       </div>
     </div>${note ? `\n    <div class="cf-note"><span>${note}</span></div>` : ''}
@@ -317,7 +317,7 @@ function archDiagram() {
 
 function renderOverview() {
   return `<div class="space-y-5 fade-in">
-    <div><h2 class="text-2xl font-bold">Kafka Streaming POC</h2><p class="text-gray-500 mt-1">Prova de conceito de uma arquitetura de streaming baseada no stack Red Hat.</p></div>
+    <div><h2 class="text-2xl font-bold">Kafka Streaming Demo</h2><p class="text-gray-500 mt-1">Demonstração de uma arquitetura de streaming baseada no stack Red Hat.</p></div>
 
     ${card('Cenário', `
       <div class="flex gap-4 items-start">
@@ -325,7 +325,7 @@ function renderOverview() {
         <div class="text-sm text-gray-700 leading-relaxed space-y-2">
           <p>A <strong>TechMart</strong> é uma rede varejista de eletrônicos que opera com dois sistemas de banco de dados: um <strong>PostgreSQL</strong> para o e-commerce (cadastro de clientes, carrinho, etc.) e um <strong>Oracle</strong> legado que gerencia o ERP (Enterprise Resource Planning — sistema de gestão integrada) de lojas físicas.</p>
           <p>Hoje, a sincronização entre os dois bancos é feita por batch noturno, o que gera atrasos e inconsistências. A proposta é adotar uma <strong>arquitetura de streaming com Apache Kafka</strong> para capturar mudanças em tempo real (CDC), integrar os sistemas e garantir governança dos dados com schemas e contratos.</p>
-          <p>Nesta POC, demonstramos como o <strong>stack Red Hat</strong> — Streams for Apache Kafka, Debezium, Apicurio Registry — resolve esse problema, desde a publicação de pedidos até a replicação cross-database e a evolução segura de schemas.</p>
+          <p>Nesta demo, demonstramos como o <strong>stack Red Hat</strong> — Streams for Apache Kafka, Debezium, Apicurio Registry — resolve esse problema, desde a publicação de pedidos até a replicação cross-database e a evolução segura de schemas.</p>
         </div>
       </div>
     `)}
@@ -351,7 +351,7 @@ function renderOverview() {
       ${CFG.consumerUrl ? eLink(CFG.consumerUrl + '/q/health', 'Consumer Health') : ''}
     </div>`)}
 
-    ${tip('Esta POC demonstra como o stack Red Hat pode substituir uma plataforma Confluent. O percurso cobre: publicação e consumo de eventos (pub/sub), captura de mudanças em PostgreSQL e Oracle via Debezium (CDC), replicação cross-database com Sink Connector, e governança de dados com Schema Registry e Data Contracts no Apicurio.')}
+    ${tip('Esta demo demonstra como o stack Red Hat pode substituir uma plataforma Confluent. O percurso cobre: publicação e consumo de eventos (pub/sub), captura de mudanças em PostgreSQL e Oracle via Debezium (CDC), replicação cross-database com Sink Connector, e governança de dados com Schema Registry e Data Contracts no Apicurio.')}
   </div>`;
 }
 
@@ -634,11 +634,11 @@ function renderSink() {
         'GCS Sink Connector (fully-managed) — 11 conectores exportando para Google Cloud Storage',
         'JDBC Sink Connector — substituto educacional (Kafka → PostgreSQL)',
         'gap',
-        'Na POC, usamos o JDBC Sink como analogia do fluxo Kafka → destino externo. Em cenários reais, conectores GCS Sink exportam dados para o Google Cloud Storage. Este é o <strong>principal gap funcional</strong> de uma migração: não existe um conector GCS equivalente productizado no stack Red Hat. A alternativa seria Red Hat build of Apache Camel ou um conector customizado — requer validação.'
+        'Nesta demo, usamos o JDBC Sink como analogia do fluxo Kafka → destino externo. Em cenários reais, conectores GCS Sink exportam dados para o Google Cloud Storage. Este é o <strong>principal gap funcional</strong> de uma migração: não existe um conector GCS equivalente productizado no stack Red Hat. A alternativa seria Red Hat build of Apache Camel ou um conector customizado — requer validação.'
       ) +
       cfRow(
         'PubSub Source Connector (fully-managed) — 1 conector ingerindo do Google Pub/Sub',
-        'Não demonstrado nesta POC',
+        'Não demonstrado nesta demo',
         'gap',
         'O Confluent oferece um conector Pub/Sub Source fully-managed. No ecossistema Red Hat, o Apache Camel possui componente Google Pubsub para essa integração, mas não é um drop-in — vira uma integração Camel, não uma migração direta.'
       ),
@@ -816,7 +816,7 @@ function renderSummary() {
     ['🛡️','Data Contracts','Compatibilidade BACKWARD, metadata, labels e falha controlada'],
   ];
   return `<div class="space-y-5 fade-in">
-    <div><h2 class="text-2xl font-bold">Resumo da Demonstração</h2><p class="text-gray-500 mt-1">Tudo que foi demonstrado nesta POC.</p></div>
+    <div><h2 class="text-2xl font-bold">Resumo da Demonstração</h2><p class="text-gray-500 mt-1">Tudo que foi demonstrado nesta demo.</p></div>
 
     ${scenario('Com esta arquitetura, a <strong>TechMart</strong> conseguiu: substituir o batch noturno por <strong>replicação em tempo real</strong> entre Oracle e PostgreSQL; desacoplar o checkout dos serviços de fulfillment, estoque e notificação via <strong>pub/sub</strong>; capturar mudanças em ambos os bancos sem alterar as aplicações existentes (<strong>CDC</strong>); e garantir que a evolução dos formatos de dados seja <strong>governada e segura</strong> via Schema Registry e Data Contracts. Tudo isso rodando sobre o <strong>stack Red Hat</strong>, com suporte empresarial e integração nativa com OpenShift.')}
 
@@ -1220,8 +1220,8 @@ function renderNav() {
 
 // ── Reset ────────────────────────────────────────────
 
-async function resetPoc() {
-  if (!confirm('Restaurar a POC ao estado inicial?\n\nIsso vai resetar os bancos de dados (PostgreSQL e Oracle) com a carga inicial e remover artefatos do Apicurio Registry.')) return;
+async function resetDemo() {
+  if (!confirm('Restaurar a demo ao estado inicial?\n\nIsso vai resetar os bancos de dados (PostgreSQL e Oracle) com a carga inicial e remover artefatos do Apicurio Registry.')) return;
 
   const overlay = document.createElement('div');
   overlay.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50';

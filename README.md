@@ -1,4 +1,4 @@
-# Kafka Streaming POC — Red Hat Stack
+# Kafka Streaming Demo — Red Hat Stack
 
 Prova de conceito educacional de uma arquitetura de streaming baseada no stack Red Hat. Demonstra Kafka, Kafka Connect, CDC com Debezium (PostgreSQL e Oracle), Schema Registry com Apicurio e conceitos de Data Contracts — tudo implantado via GitOps com ArgoCD no OpenShift.
 
@@ -143,7 +143,7 @@ Para detalhes completos, consulte a seção 33 do `AGENTS.md`.
 - **Debezium 3.6.1 + Kafka Connect 4.2.0:** Bug de validação (`NullPointerException`) no endpoint PUT. Conectores funcionam normalmente, mas KafkaConnector CRs podem aparecer momentaneamente como "Degraded" durante reconciliação.
 - **Oracle ARCHIVELOG:** Precisa ser habilitado manualmente após cada restart do pod Oracle (dados em `emptyDir`).
 - **PostgreSQL replication:** O role `REPLICATION` precisa ser concedido manualmente ao `demouser` após recriação do pod.
-- **Senhas em CRs:** As senhas estão nos KafkaConnector CRs como plaintext (aceitável para POC, não para produção).
+- **Senhas em CRs:** As senhas estão nos KafkaConnector CRs como plaintext (aceitável para demo, não para produção).
 - **Sem TLS interno:** Comunicação entre componentes usa plaintext (adequado para lab).
 - **Sem autenticação nas apps:** Producer e Consumer não exigem autenticação.
 
@@ -151,7 +151,7 @@ Para detalhes completos, consulte a seção 33 do `AGENTS.md`.
 
 ## Roteiro de demonstração
 
-Este roteiro guia uma apresentação completa da POC, do mais básico ao mais avançado. Tempo estimado: **20–30 minutos**.
+Este roteiro guia uma apresentação completa da demo, do mais básico ao mais avançado. Tempo estimado: **20–30 minutos**.
 
 ### Passo 1 — Visão geral no ArgoCD
 

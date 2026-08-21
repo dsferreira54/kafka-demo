@@ -19,9 +19,9 @@ O fluxo de uso é:
 
 Este repositório existe para construir uma **prova de conceito educacional** de uma arquitetura de streaming baseada no stack Red Hat.
 
-A POC **não** é um deliverable para cliente e não deve tentar reproduzir fielmente um ambiente de produção. O objetivo principal é permitir que o responsável pela oportunidade entenda, na prática, como os principais componentes se conectam, quais responsabilidades cada um possui e quais pontos exigiriam atenção em uma migração real.
+A demo **não** é um deliverable para cliente e não deve tentar reproduzir fielmente um ambiente de produção. O objetivo principal é permitir que o responsável pela oportunidade entenda, na prática, como os principais componentes se conectam, quais responsabilidades cada um possui e quais pontos exigiriam atenção em uma migração real.
 
-O cenário de negócio que motivou o estudo envolve uma possível substituição de uma plataforma Confluent por componentes Red Hat. Entretanto, **esta POC deve implementar somente o lado Red Hat**. Não implementar Confluent nesta fase.
+O cenário de negócio que motivou o estudo envolve uma possível substituição de uma plataforma Confluent por componentes Red Hat. Entretanto, **esta demo deve implementar somente o lado Red Hat**. Não implementar Confluent nesta fase.
 
 ### 2.1 Contexto da oportunidade
 
@@ -38,11 +38,11 @@ O cenário original possui Apache Kafka como plataforma central de streaming e i
 
 O ambiente real é significativamente maior, com muitos tópicos, grande volume de dados, vários conectores e requisitos de rede e segurança.
 
-Esta POC deve deliberadamente reduzir essa complexidade ao mínimo necessário para demonstrar os conceitos.
+Esta demo deve deliberadamente reduzir essa complexidade ao mínimo necessário para demonstrar os conceitos.
 
 ### 2.2 Resultado esperado
 
-Ao terminar a POC, alguém com conhecimento limitado de Kafka deve conseguir olhar para o ambiente e entender, na prática:
+Ao terminar a demo, alguém com conhecimento limitado de Kafka deve conseguir olhar para o ambiente e entender, na prática:
 
 ```text
 Quem publica eventos?           →  Producer
@@ -57,7 +57,7 @@ Onde entram Data Contracts?      →  Schema + metadata + regras/políticas
                                     disponíveis no stack escolhido
 ```
 
-Esse entendimento prático é o principal critério de valor desta POC.
+Esse entendimento prático é o principal critério de valor desta demo.
 
 ---
 
@@ -501,7 +501,7 @@ O `README.md` deve conter **obrigatoriamente** as seguintes seções, nesta orde
 5. **Validação** — Como verificar que o ambiente está saudável após o deploy. Incluir comandos `oc` e `curl` com output esperado.
 6. **Credenciais e acessos** — Tabela com todas as URLs, usuários e senhas fictícias. Incluir links das Routes, ArgoCD, consoles e APIs.
 7. **Decisões técnicas** — Resumo das escolhas feitas durante a implementação e por quê. Referenciar a seção 33 do AGENTS.md para detalhes completos.
-8. **Limitações conhecidas** — O que esta POC não faz, o que é diferente de produção e quais workarounds existem.
+8. **Limitações conhecidas** — O que esta demo não faz, o que é diferente de produção e quais workarounds existem.
 9. **Roteiro de demonstração** — Guia completo e cronológico para apresentar a demo (ver seção 13.2).
 
 ### 13.2 Roteiro de demonstração
@@ -629,7 +629,7 @@ Não fazer:
 
 ## 19. Critérios de sucesso
 
-A POC estará concluída quando:
+A demo estará concluída quando:
 
 1. Red Hat Streams for Apache Kafka estiver funcional.
 2. Producer e consumer trocarem eventos com sucesso.
@@ -663,13 +663,13 @@ A IA responsável pela implementação deve:
 6. Documentar as decisões tomadas e o motivo.
 7. Mudar de abordagem quando uma hipótese não funcionar bem.
 
-Este arquivo define **o que a POC precisa demonstrar**, não exatamente **como cada componente deve ser implantado**.
+Este arquivo define **o que a demo precisa demonstrar**, não exatamente **como cada componente deve ser implantado**.
 
 Evitar introduzir complexidade que não contribua diretamente para o aprendizado.
 
 ---
 
-## 21. Escopo funcional da POC
+## 21. Escopo funcional da demo
 
 ### 21.1 Red Hat Streams for Apache Kafka
 
@@ -714,7 +714,7 @@ Deve existir apenas a complexidade necessária para demonstrar o fluxo.
 
 ### 21.4 Kafka Connect
 
-A POC deve utilizar **Kafka Connect**.
+A demo deve utilizar **Kafka Connect**.
 
 Objetivos de aprendizado:
 
@@ -727,7 +727,7 @@ Não criar integrações artificiais apenas para aumentar a quantidade de compon
 
 ### 21.5 CDC com Red Hat build of Debezium para PostgreSQL
 
-Subir uma instância de **PostgreSQL** para servir como fonte de dados da POC.
+Subir uma instância de **PostgreSQL** para servir como fonte de dados da demo.
 
 Utilizar **Red Hat build of Debezium** para capturar mudanças no PostgreSQL e publicá-las no Kafka.
 
@@ -744,13 +744,13 @@ Debezium / Kafka Connect
 Kafka
 ```
 
-A POC deve permitir executar operações simples no banco (INSERT, UPDATE, DELETE) e observar os eventos correspondentes chegando ao Kafka.
+A demo deve permitir executar operações simples no banco (INSERT, UPDATE, DELETE) e observar os eventos correspondentes chegando ao Kafka.
 
 A versão do PostgreSQL, configuração específica do Debezium, estratégia de snapshot e detalhes de publicação devem ser decididos e testados durante a implementação.
 
 ### 21.6 CDC com Red Hat build of Debezium para Oracle
 
-Subir uma instância de **Oracle Database** apropriada para a POC.
+Subir uma instância de **Oracle Database** apropriada para a demo.
 
 Utilizar **Red Hat build of Debezium** para capturar mudanças no Oracle e publicá-las no Kafka.
 
@@ -767,13 +767,13 @@ Debezium / Kafka Connect
 Kafka
 ```
 
-A POC deve permitir executar operações simples no banco e observar eventos CDC correspondentes.
+A demo deve permitir executar operações simples no banco e observar eventos CDC correspondentes.
 
 Não fixar antecipadamente edição, imagem, estratégia de instalação ou configuração detalhada do Oracle. A IA executora deve escolher uma alternativa adequada para laboratório, validar compatibilidade e documentar a escolha.
 
 ### 21.7 Red Hat build of Apicurio Registry
 
-A POC deve incluir **Red Hat build of Apicurio Registry**.
+A demo deve incluir **Red Hat build of Apicurio Registry**.
 
 Objetivos de aprendizado:
 
@@ -789,7 +789,7 @@ Não definir antecipadamente o modo de instalação, storage interno, banco util
 
 ### 21.8 Data Contracts
 
-A POC deve explorar **conceitos de Data Contracts** utilizando as capacidades disponíveis no stack Red Hat.
+A demo deve explorar **conceitos de Data Contracts** utilizando as capacidades disponíveis no stack Red Hat.
 
 O objetivo não é presumir equivalência 1:1 com funcionalidades específicas de outras plataformas.
 
@@ -814,9 +814,9 @@ Não inventar funcionalidades inexistentes no Apicurio.
 
 ### 21.9 Substituto educacional para o fluxo Kafka → armazenamento externo
 
-O cenário real possui integração de saída do Kafka para Google Cloud Storage. **Google Cloud Storage não deve ser utilizado nesta POC.**
+O cenário real possui integração de saída do Kafka para Google Cloud Storage. **Google Cloud Storage não deve ser utilizado nesta demo.**
 
-A POC deve demonstrar o conceito de um **Sink Connector**:
+A demo deve demonstrar o conceito de um **Sink Connector**:
 
 ```text
 Kafka
@@ -863,7 +863,7 @@ Os itens abaixo **não devem ser implementados nesta fase**:
 - Alta disponibilidade em escala de produção.
 - Disaster recovery completo.
 
-Esses temas podem ser estudados posteriormente, mas não devem aumentar a complexidade desta POC.
+Esses temas podem ser estudados posteriormente, mas não devem aumentar a complexidade desta demo.
 
 ---
 
@@ -916,7 +916,7 @@ A arquitetura real poderá variar se testes mostrarem uma opção mais adequada.
 
 ## 24. Quantidade de aplicações e tópicos
 
-Manter a POC pequena.
+Manter a demo pequena.
 
 Aplicações obrigatórias:
 
@@ -963,7 +963,7 @@ Evitar modelagem de negócio complexa.
 
 ## 26. Experimentos mínimos esperados
 
-Ao final da POC, deve ser possível executar uma sequência equivalente a:
+Ao final da demo, deve ser possível executar uma sequência equivalente a:
 
 ### Experimento A: Kafka básico
 
@@ -1014,9 +1014,9 @@ Demonstrar, de forma compatível com as capacidades reais do stack escolhido:
 
 ---
 
-## 27. Requisitos de documentação da POC
+## 27. Requisitos de documentação da demo
 
-Durante a construção da POC, documentar:
+Durante a construção da demo, documentar:
 
 - Versões utilizadas.
 - Fontes oficiais consultadas.
@@ -1026,7 +1026,7 @@ Durante a construção da POC, documentar:
 - Incompatibilidades encontradas.
 - Comandos e manifestos necessários para reproduzir o ambiente.
 - Problemas encontrados e respectivas soluções.
-- Limitações da POC.
+- Limitações da demo.
 - Diferenças conhecidas entre laboratório e produção.
 
 Não esconder tentativas que falharam quando elas forem relevantes para explicar a decisão final.
@@ -1065,7 +1065,7 @@ Deve ser possível verificar pelo menos:
 - Chegada de mensagens.
 - Falhas básicas.
 
-Não transformar esta fase em uma POC de observabilidade.
+Não transformar esta fase em uma demo de observabilidade.
 
 ---
 
@@ -1105,7 +1105,7 @@ A IA executora deve responder essas perguntas com pesquisa, testes e evidências
 
 ## 32. Não objetivos
 
-Não otimizar esta POC para:
+Não otimizar esta demo para:
 
 - Benchmark.
 - Performance máxima.

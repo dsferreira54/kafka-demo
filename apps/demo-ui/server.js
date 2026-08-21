@@ -225,7 +225,7 @@ app.get('/api/kafka/consume/:topic', async (req, res) => {
   finally { await consumer.disconnect().catch(() => {}); }
 });
 
-// ---------- Reset POC ----------
+// ---------- Reset Demo ----------
 app.post('/api/reset', async (_req, res) => {
   const log = [];
   try {
