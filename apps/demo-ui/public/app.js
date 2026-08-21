@@ -28,8 +28,8 @@ const STEP_INIT = [
   null,
   () => { loadOrders(); poll(() => loadOrders(true), 3000); },
   () => { listTopics(); describeTopic(); },
-  () => { cdcTable('pg'); poll(() => cdcTable('pg', true), 4000); },
-  () => { cdcTable('ora'); poll(() => cdcTable('ora', true), 4000); },
+  () => { cdcTable('pg'); cdcEvents('pg','debezium.public.customers',true); poll(() => cdcTable('pg', true), 4000); poll(() => cdcEvents('pg','debezium.public.customers',true), 8000); },
+  () => { cdcTable('ora'); cdcEvents('ora','oracle.DEBEZIUM.CUSTOMERS',true); poll(() => cdcTable('ora', true), 4000); poll(() => cdcEvents('ora','oracle.DEBEZIUM.CUSTOMERS',true), 8000); },
   () => { sinkSource(); sinkDest(); sinkStatus(true); poll(() => { sinkSource(true); sinkDest(true); sinkStatus(true); }, 5000); },
   () => { listConnectors(); poll(() => listConnectors(true), 5000); },
   () => { listArtifacts(); },
@@ -247,10 +247,9 @@ function cdcStep(opts) {
       <div id="r-${apiBase}-table"><div class="flex items-center gap-2 text-gray-400 text-sm py-3"><span class="spinner"></span> Carregando dados...</div></div>
     `)}
 
-    ${card('Eventos CDC no Kafka', `
+    ${liveCard('Eventos CDC no Kafka', `
       <p class="text-xs text-gray-500 mb-3">Tópico: <code class="bg-gray-100 px-1.5 py-0.5 rounded">${cdcTopic}</code></p>
-      ${sBtn('📡 Ver Eventos CDC',"cdcEvents('" + apiBase + "','" + cdcTopic + "')")}
-      ${res(`r-${apiBase}-cdc`)}
+      <div id="r-${apiBase}-cdc"><div class="flex items-center gap-2 text-gray-400 text-sm py-3"><span class="spinner"></span> Carregando eventos CDC...</div></div>
     `)}
 
     ${tip(tipText)}
@@ -456,6 +455,13 @@ async function describeTopic() {
 
 // ── CDC helpers ──────────────────────────────────────
 
+const CDC_TOPIC = { pg: 'debezium.public.customers', ora: 'oracle.DEBEZIUM.CUSTOMERS' };
+
+function cdcRefreshAfterWrite(base) {
+  cdcTable(base, true);
+  setTimeout(() => cdcEvents(base, CDC_TOPIC[base], true), 3000);
+}
+
 async function cdcInsert(base) {
   const rid = `r-${base}-insert`;
   showSpin(rid);
@@ -466,7 +472,7 @@ async function cdcInsert(base) {
       : `INSERT INTO CUSTOMERS (NAME, EMAIL, CITY) VALUES ('${name}', '${email}', '${city}')`;
     const data = await api(`/api/${base === 'pg' ? 'pg' : 'oracle'}/execute`, { method: 'POST', body: JSON.stringify({ sql }) });
     showOk(rid, { status: 'OK', ...data, sql });
-    cdcTable(base, true);
+    cdcRefreshAfterWrite(base);
   } catch (e) { showErr(rid, e.message); }
 }
 
@@ -480,7 +486,7 @@ async function cdcUpdate(base) {
       : `UPDATE CUSTOMERS SET ${field.toUpperCase()} = '${val}' WHERE ID = ${id}`;
     const data = await api(`/api/${base === 'pg' ? 'pg' : 'oracle'}/execute`, { method: 'POST', body: JSON.stringify({ sql }) });
     showOk(rid, { status: 'OK', ...data, sql });
-    cdcTable(base, true);
+    cdcRefreshAfterWrite(base);
   } catch (e) { showErr(rid, e.message); }
 }
 
@@ -492,7 +498,7 @@ async function cdcDelete(base) {
     const sql = base === 'pg' ? `DELETE FROM customers WHERE id = ${id}` : `DELETE FROM CUSTOMERS WHERE ID = ${id}`;
     const data = await api(`/api/${base === 'pg' ? 'pg' : 'oracle'}/execute`, { method: 'POST', body: JSON.stringify({ sql }) });
     showOk(rid, { status: 'OK', ...data, sql });
-    cdcTable(base, true);
+    cdcRefreshAfterWrite(base);
   } catch (e) { showErr(rid, e.message); }
 }
 
@@ -508,9 +514,10 @@ async function cdcTable(base, silent = false) {
   } catch (e) { if (!silent) showErr(rid, e.message); }
 }
 
-async function cdcEvents(base, topic) {
+async function cdcEvents(base, topic, silent = false) {
   const rid = `r-${base}-cdc`;
-  showSpin(rid);
+  if (!$(rid)) return;
+  if (!silent) showSpin(rid);
   try {
     const msgs = await api(`/api/kafka/consume/${encodeURIComponent(topic)}?limit=5`);
     if (!msgs.length) return setHtml(rid, '<p class="text-gray-500 italic text-sm py-2">Nenhum evento encontrado (o consumer pode levar alguns segundos).</p>');
@@ -523,7 +530,7 @@ async function cdcEvents(base, topic) {
       </div>`;
     }).join('');
     setHtml(rid, html);
-  } catch (e) { showErr(rid, e.message); }
+  } catch (e) { if (!silent) showErr(rid, e.message); }
 }
 
 // ── Sink helpers ─────────────────────────────────────
