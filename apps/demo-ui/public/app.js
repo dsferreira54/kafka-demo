@@ -225,6 +225,40 @@ function underTheHood(flowHtml, resources, explanation) {
   </div>`;
 }
 
+// ── Confluent Comparison ─────────────────────────────
+
+const CF_BADGES = {
+  direct:  ['Direta',                'cf-badge-direct'],
+  close:   ['Muito próxima',         'cf-badge-close'],
+  good:    ['Boa correspondência',   'cf-badge-good'],
+  strong:  ['Correspondência forte', 'cf-badge-good'],
+  partial: ['Parcial',               'cf-badge-partial'],
+  gap:     ['Sem equivalente direto','cf-badge-gap'],
+};
+
+function cfRow(confluent, redhat, badgeKey, note) {
+  const [label, cls] = CF_BADGES[badgeKey] || CF_BADGES.partial;
+  return `<div class="cf-row">
+    <span class="cf-badge ${cls}">${label}</span>
+    <div class="cf-col flex-1">
+      <div class="cf-label">Confluent</div>
+      <div class="cf-text">${confluent}</div>
+    </div>
+    <div class="cf-col flex-1">
+      <div class="cf-label">Red Hat (esta POC)</div>
+      <div class="cf-text">${redhat}</div>
+    </div>
+  </div>${note ? `<div class="cf-note px-3">${note}</div>` : ''}`;
+}
+
+function confluentComparison(rows, summary) {
+  return `<div class="cf-card mt-5">
+    <div class="cf-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/><path d="M18 3h3v3"/><path d="M10 14L21 3"/></svg>E no Confluent?</div>
+    <div class="divide-y divide-blue-100">${rows}</div>
+    ${summary ? `<p class="text-xs text-blue-900/70 leading-relaxed mt-3 pt-3 border-t border-blue-100">${summary}</p>` : ''}
+  </div>`;
+}
+
 function compCard(name, desc, emoji, c) {
   return `<div class="flex items-center gap-3 p-3 rounded-lg bg-${c}-50 border border-${c}-200"><span class="text-xl">${emoji}</span><div><p class="font-medium text-sm">${name}</p><p class="text-xs text-gray-500">${desc}</p></div></div>`;
 }
@@ -361,6 +395,22 @@ function renderKafka() {
       hoodResource('Route', 'kafka-consumer', 'Rota externa para o Consumer', '3-apps/1-consumer.yaml'),
       'O <strong>Kafka CR</strong> instrui o Strimzi Operator a criar os 3 brokers como StatefulSet. O <strong>KafkaTopic CR</strong> cria o tópico <code>orders</code>. O Producer recebe pedidos via REST e usa SmallRye Reactive Messaging para publicá-los. O Consumer lê do mesmo tópico e armazena em memória.'
     )}
+
+    ${confluentComparison(
+      cfRow(
+        'Confluent Cloud Dedicated (1 CKU) — SaaS totalmente gerenciado na GCP',
+        'Red Hat Streams for Apache Kafka — Kafka auto-gerenciado via Strimzi Operator no OpenShift',
+        'direct',
+        'O motor é o mesmo Apache Kafka. A diferença é operacional: no Confluent, a infraestrutura é invisível (SaaS); no Red Hat, você declara o cluster via CRDs e o Strimzi Operator cuida do lifecycle — mas você tem controle total sobre configuração, versão e topologia.'
+      ) +
+      cfRow(
+        'API Keys + Service Accounts para autenticação e ACLs',
+        'KafkaUser CRD + TLS/SCRAM-SHA + ACLs declarativas',
+        'good',
+        'Ambos oferecem autenticação e autorização granular. No Confluent, credenciais são gerenciadas via UI/CLI da plataforma. No Red Hat, <code>KafkaUser</code> CRDs permitem definir usuários e ACLs como código, integrados ao GitOps.'
+      ),
+      'Em um ambiente Confluent Cloud típico, o cluster Dedicated hospeda centenas de tópicos com vazão contínua. O Kafka em si é a peça com migração mais direta — a mudança principal é assumir a operação do cluster.'
+    )}
   </div>`;
 }
 
@@ -398,13 +448,29 @@ function renderTopics() {
       hoodResource('KafkaTopic', 'orders', 'Tópico <code>orders</code> — partições e replicação definidos declarativamente', '1-amq-streams/3-topics.yaml'),
       'O <strong>Kafka CR</strong> define a configuração do cluster (KRaft, listeners). O <strong>KafkaNodePool CR</strong> especifica quantos nós, seus roles e storage. O Strimzi Operator reconcilia esses CRs e cria um StatefulSet com 3 pods. Os <strong>KafkaTopic CRs</strong> criam os tópicos declarativamente — o Entity Topic Operator monitora esses CRs e gerencia os tópicos no cluster.'
     )}
+
+    ${confluentComparison(
+      cfRow(
+        'Gerenciamento de tópicos e partições via UI/CLI do Confluent Cloud',
+        'KafkaTopic CRDs declarativos — tópicos como código, versionados no Git',
+        'direct',
+        'A semântica de tópicos e partições é idêntica (mesmo Apache Kafka). No Confluent, tópicos são gerenciados via console web; no Red Hat, são declarados como <code>KafkaTopic</code> CRDs e reconciliados pelo operator — o que permite GitOps nativo.'
+      ) +
+      cfRow(
+        'A maioria dos tópicos CDC é mono-particionada (padrão do Debezium)',
+        'Mesma distribuição — particionamento é configuração do tópico, independente da plataforma',
+        'direct',
+        'O padrão de partição única nos tópicos CDC garante ordenação por chave primária. Na migração, essa configuração seria preservada. Para tópicos com necessidade de maior paralelismo, ambas as plataformas permitem aumentar partições.'
+      ),
+      'Em ambientes com forte uso de CDC, a maioria dos tópicos tende a ter apenas 1 partição (exigência de ordenação por chave primária). Isso concentra a carga em poucos tópicos — um ponto que precisa entrar no desenho de sizing de qualquer migração.'
+    )}
   </div>`;
 }
 
 // ── Generic CDC renderer ─────────────────────────────
 
 function cdcStep(opts) {
-  const { title, desc, dbLabel, dbEmoji, dbColor, apiBase, cdcTopic, tipText, scenarioText, hoodHtml } = opts;
+  const { title, desc, dbLabel, dbEmoji, dbColor, apiBase, cdcTopic, tipText, scenarioText, hoodHtml, cfHtml } = opts;
   return `<div class="space-y-5 fade-in">
     <div><h2 class="text-2xl font-bold">${title}</h2><p class="text-gray-500 mt-1">${desc}</p></div>
 
@@ -447,6 +513,7 @@ function cdcStep(opts) {
     ${tip(tipText)}
 
     ${hoodHtml || ''}
+    ${cfHtml || ''}
   </div>`;
 }
 
@@ -473,6 +540,15 @@ function renderPgCDC() {
       hoodResource('KafkaConnector', 'debezium-postgres', 'Source Connector: lê WAL do PostgreSQL e publica em <code>debezium.public.customers</code>', '5-kafka-connect/1-pg-connector.yaml'),
       'O <strong>Deployment</strong> do PostgreSQL é configurado com <code>wal_level=logical</code> via ConfigMap. O <strong>KafkaConnect CR</strong> instrui o Strimzi a construir uma imagem Docker com os plugins Debezium. O <strong>KafkaConnector CR</strong> <code>debezium-postgres</code> configura a conexão ao banco, o slot de replicação (<code>debezium_slot</code>) e o prefixo de tópico (<code>debezium</code>). O Debezium lê o WAL e publica eventos no tópico <code>debezium.public.customers</code>.'
     ),
+    cfHtml: confluentComparison(
+      cfRow(
+        'PostgreSQL CDC Source V2 (fully-managed) — usa Debezium internamente',
+        'Red Hat build of Debezium — PostgreSQL Connector (mesmo engine)',
+        'close',
+        'A própria Confluent documenta que o conector CDC V2 usa Debezium internamente. Isso significa que o motor de captura é o mesmo — a migração envolve mapeamento de configuração (offsets, snapshot mode, slot name), não troca de tecnologia.'
+      ),
+      'O conector PostgreSQL CDC V2 da Confluent já usa Debezium internamente. Por isso, este é provavelmente o caminho de migração mais direto entre todos os conectores — a mudança é de configuração, não de engine.'
+    ),
   });
 }
 
@@ -498,6 +574,15 @@ function renderOraCDC() {
       hoodResource('KafkaConnect', 'kafka-connect', 'Cluster Kafka Connect com plugin <code>debezium-connector-oracle</code>', '5-kafka-connect/0-kafka-connect.yaml') +
       hoodResource('KafkaConnector', 'debezium-oracle', 'Source Connector: lê redo logs via LogMiner e publica em <code>oracle.DEBEZIUM.CUSTOMERS</code>', '5-kafka-connect/2-oracle-connector.yaml'),
       'O <strong>Deployment</strong> do Oracle usa a imagem <code>gvenzl/oracle-free</code> com um ServiceAccount que possui SCC <code>anyuid</code> (Oracle precisa de UID fixo). O banco é configurado com ARCHIVELOG e supplemental logging. O <strong>KafkaConnector CR</strong> <code>debezium-oracle</code> usa um usuário comum <code>C##DBZUSER</code> no CDB com permissões de LogMiner para capturar mudanças do PDB <code>FREEPDB1</code>.'
+    ),
+    cfHtml: confluentComparison(
+      cfRow(
+        'Confluent Oracle CDC Source (fully-managed)',
+        'Red Hat build of Debezium — Oracle Connector via LogMiner',
+        'good',
+        'Ambos fazem CDC de Oracle. O Debezium suportado pela Red Hat usa LogMiner para ler redo logs. A migração exige mapeamento de configuração, atenção à retomada do CDC na virada (offsets, snapshot), e validação de permissões do usuário de captura.'
+      ),
+      'Em ambientes com Oracle como fonte principal de CDC, o conector Oracle tende a ser o maior gerador de dados do cluster. A migração é funcional, mas precisa de planejamento cuidadoso por conta do volume e da sensibilidade da captura em tempo real.'
     ),
   });
 }
@@ -540,6 +625,22 @@ function renderSink() {
       hoodResource('Deployment', 'postgresql', 'Banco de destino — tabela <code>oracle_customers</code> criada automaticamente pelo Sink', '4-databases/0-postgresql.yaml'),
       'O <strong>debezium-oracle</strong> (Source Connector) captura mudanças do Oracle e publica no tópico <code>oracle.DEBEZIUM.CUSTOMERS</code> com schema embutido (<code>schemas.enable: true</code>). O <strong>jdbc-sink-oracle-to-pg</strong> (Sink Connector) consome desse tópico e escreve no PostgreSQL usando modo <code>upsert</code> com chave primária derivada do <code>record_key</code>. O Sink cria a tabela automaticamente se não existir.'
     )}
+
+    ${confluentComparison(
+      cfRow(
+        'GCS Sink Connector (fully-managed) — 11 conectores exportando para Google Cloud Storage',
+        'JDBC Sink Connector — substituto educacional (Kafka → PostgreSQL)',
+        'gap',
+        'Na POC, usamos o JDBC Sink como analogia do fluxo Kafka → destino externo. Em cenários reais, conectores GCS Sink exportam dados para o Google Cloud Storage. Este é o <strong>principal gap funcional</strong> de uma migração: não existe um conector GCS equivalente productizado no stack Red Hat. A alternativa seria Red Hat build of Apache Camel ou um conector customizado — requer validação.'
+      ) +
+      cfRow(
+        'PubSub Source Connector (fully-managed) — 1 conector ingerindo do Google Pub/Sub',
+        'Não demonstrado nesta POC',
+        'gap',
+        'O Confluent oferece um conector Pub/Sub Source fully-managed. No ecossistema Red Hat, o Apache Camel possui componente Google Pubsub para essa integração, mas não é um drop-in — vira uma integração Camel, não uma migração direta.'
+      ),
+      'Os conectores GCS Sink e Pub/Sub Source são proprietários da Confluent e representam os pontos que exigem mais trabalho na migração. O Tanaka corretamente identificou que precisam de análise à parte, possivelmente via Camel.'
+    )}
   </div>`;
 }
 
@@ -573,6 +674,16 @@ function renderConnect() {
       hoodResource('KafkaConnector', 'jdbc-sink-oracle-to-pg', 'Sink Connector: replica Oracle → PostgreSQL via JDBC', '5-kafka-connect/3-jdbc-sink.yaml') +
       hoodResource('NetworkPolicy', 'demo-ui-to-kafka-connect', 'Permite que o demo-ui acesse a API REST do Connect (porta 8083)', '6-demo-ui/0-demo-ui.yaml'),
       'O <strong>KafkaConnect CR</strong> instrui o Strimzi a construir uma imagem Docker customizada via S2I, incluindo os plugins Debezium (PostgreSQL, Oracle e JDBC Sink) como artefatos Maven. O annotation <code>strimzi.io/use-connector-resources: true</code> habilita o gerenciamento declarativo de conectores via <strong>KafkaConnector CRs</strong>. O Strimzi Entity Operator monitora esses CRs e cria/atualiza/remove os conectores no cluster Connect automaticamente.'
+    )}
+
+    ${confluentComparison(
+      cfRow(
+        'Fully-Managed Connectors — conectores como serviço SaaS',
+        'KafkaConnect CR + KafkaConnector CRs — conectores auto-gerenciados via Strimzi',
+        'good',
+        'A tecnologia subjacente é a mesma: Apache Kafka Connect. A diferença é operacional — no Confluent, você cria conectores via UI/CLI e a infraestrutura é invisível. No Red Hat, você declara o <code>KafkaConnect</code> CR (com build dos plugins) e os <code>KafkaConnector</code> CRs. Isso dá mais controle, mas exige que a equipe de plataforma gerencie imagens, builds e monitoring.'
+      ),
+      'Em um ambiente Confluent típico, dezenas de conectores (CDC, Sinks, Sources) rodam como serviço totalmente gerenciado. Na migração, a equipe precisará montar o KafkaConnect com os plugins necessários e definir cada conector como CRD — um ganho para GitOps, mas com responsabilidade operacional adicional.'
     )}
   </div>`;
 }
@@ -617,6 +728,16 @@ function renderSchema() {
       hoodResource('Route', 'apicurio-registry-api', 'Rota externa para a API REST do Registry', '2-apicurio/2-routes.yaml') +
       hoodResource('Route', 'apicurio-registry-ui', 'Rota externa para a UI do Registry', '2-apicurio/2-routes.yaml'),
       'O <strong>ApicurioRegistry3 CR</strong> instrui o Apicurio Operator a criar dois Deployments: o App (API backend) e o UI (frontend web). O storage utiliza <strong>KafkaSQL</strong>, que armazena schemas como mensagens em tópicos internos do cluster Kafka — sem necessidade de banco de dados externo. As <strong>Routes</strong> expõem a API (<code>/apis/registry/v3</code>) e a UI externamente.'
+    )}
+
+    ${confluentComparison(
+      cfRow(
+        'Confluent Schema Registry — schemas Avro/Protobuf, SaaS gerenciado',
+        'Red Hat build of Apicurio Registry v3 — storage KafkaSQL, API REST v3',
+        'strong',
+        'Apicurio suporta Avro, Protobuf, JSON Schema e outros formatos. Possui regras de compatibilidade (BACKWARD, FORWARD, FULL), versionamento e serializers/deserializers compatíveis com o ecossistema Kafka. A migração exige mapear subjects/artifacts, formatos e regras de compatibilidade atuais.'
+      ),
+      'Em ambientes com forte governança de dados, o Schema Registry pode gerenciar centenas ou milhares de schemas vinculados à maioria dos tópicos. A migração dos schemas em si é viável — o ponto de atenção é garantir que serializers/deserializers das aplicações sejam compatíveis e que as políticas de compatibilidade sejam preservadas.'
     )}
   </div>`;
 }
@@ -664,6 +785,16 @@ function renderContracts() {
       ]),
       hoodResource('ApicurioRegistry', 'apicurio-registry', 'O mesmo Registry da página anterior — todas as APIs de Data Contracts são do Apicurio v3', '2-apicurio/1-registry.yaml'),
       'Data Contracts são implementados usando a <strong>API REST v3</strong> do Apicurio Registry. O fluxo é: (1) registrar o artifact com <code>POST /groups/default/artifacts</code>, (2) definir regra de compatibilidade com <code>POST /groups/default/artifacts/{id}/rules</code>, (3) ao registrar nova versão com <code>POST /groups/default/artifacts/{id}/versions</code>, o Registry valida contra a regra — se incompatível, retorna <strong>HTTP 409</strong>. Labels e metadata são gerenciados via <code>PUT /groups/default/artifacts/{id}</code>.'
+    )}
+
+    ${confluentComparison(
+      cfRow(
+        'Confluent Data Contracts — feature nativa integrada ao Schema Registry',
+        'Apicurio Registry — schemas + metadata + labels + regras de compatibilidade',
+        'partial',
+        'O Confluent trata Data Contracts como uma feature de primeira classe (schema + metadata + migration rules + quality rules). O Apicurio oferece os building blocks (schemas, versionamento, compatibilidade, metadata, labels), mas a composição dessas peças em um "contrato" é responsabilidade da aplicação e da governança.'
+      ),
+      'Em ambientes Confluent com forte uso de Data Contracts, a maioria dos tópicos pode ter validação ativa. Para qualquer migração, é essencial mapear <strong>quais capabilities</strong> de Data Contracts são efetivamente usadas: apenas schema + compatibilidade? Ou também quality rules, migration rules, metadata avançado? Isso determina o gap real entre Confluent e Apicurio.'
     )}
   </div>`;
 }
