@@ -1067,3 +1067,125 @@ Não otimizar esta POC para:
 - Arquitetura final do cliente.
 
 Qualquer conclusão sobre produção deve ser tratada separadamente.
+
+---
+
+## 33. Registro de decisões e resultados da implementação
+
+### 33.1 Versões utilizadas
+
+| Componente | Versão | Observação |
+|---|---|---|
+| OpenShift | 4.22.9 | Cluster RHPDS |
+| AMQ Streams (operator) | 3.2.1 | Canal `stable` |
+| Apache Kafka (via AMQ Streams) | 4.2.0 | KRaft mode (sem ZooKeeper) |
+| Red Hat build of Apicurio Registry | 3.2.6.redhat-00001 | Canal `3.x`, storage KafkaSQL |
+| Red Hat build of Debezium | 3.6.1.Final | PostgreSQL + Oracle + JDBC Sink |
+| Oracle JDBC driver (ojdbc11) | 23.6.0.24.10 | Para Debezium Oracle connector |
+| Oracle Database Free | 23c (23-slim) | `gvenzl/oracle-free:23-slim` |
+| PostgreSQL | 12-el8 | Imagem interna OpenShift |
+| Quarkus | 3.38.3 | Producer e Consumer apps |
+| Java | 21 | `ubi8-openjdk-21:1.18` (S2I) |
+| ArgoCD | Instalado via deploy.sh | Auto-sync + self-heal + prune |
+
+### 33.2 Decisões técnicas relevantes
+
+**Kafka em modo KRaft:** O AMQ Streams 3.2 suporta nativamente KRaft (sem ZooKeeper), usando KafkaNodePool com roles `[controller, broker]` em 3 nós combinados. Reduz a complexidade operacional.
+
+**Apicurio Registry com KafkaSQL:** Armazena os schemas diretamente no Kafka (tópicos `kafkasql-journal` e `kafkasql-snapshots`), eliminando a necessidade de banco de dados externo para o Registry.
+
+**Oracle Free 23c (não XE):** Oracle XE não suporta supplemental logging necessário para Debezium LogMiner. Oracle Database Free 23c é a edição mais leve que suporta CDC. Requer `anyuid` SCC no OpenShift (UID 54321).
+
+**Debezium Oracle via LogMiner:** Usa common user `C##DBZUSER` no CDB para acessar redo logs. Requer ARCHIVELOG mode + supplemental logging (ALL COLUMNS).
+
+**JDBC Sink em vez de MinIO/S3:** O AGENTS.md pedia um substituto educacional para GCS. O Debezium JDBC Sink Connector (parte do stack Red Hat) reutiliza o PostgreSQL existente e demonstra o conceito de Sink Connector sem infraestrutura adicional. A analogia: assim como GCS armazena dados de forma durável fora do Kafka, o Sink escreve em PostgreSQL — o conceito de "destino externo" é o mesmo.
+
+**JsonConverter com schemas.enable:** Os source connectors precisam de `schemas.enable: true` nos converters para que o JDBC Sink consiga criar tabelas automaticamente (`schema.evolution: basic`).
+
+**KafkaConnector CRs obrigatórios:** Com `strimzi.io/use-connector-resources: "true"`, o Strimzi remove conectores criados via REST API que não têm CRs correspondentes. Todos os conectores precisam de CRs.
+
+**Debezium 3.6.1 + Kafka Connect 4.2.0:** Incompatibilidade de validação gera `NullPointerException` no endpoint PUT do REST API. Workaround: criar conectores via POST ou diretamente via KafkaConnector CRs (que usam um caminho diferente). Os conectores funcionam normalmente após criação.
+
+### 33.3 Problemas encontrados e soluções
+
+1. **PostgreSQL init scripts:** ConfigMaps montados como init scripts interferiram no processo de inicialização do container PostgreSQL. Solução: usar apenas `custom.conf` para `wal_level=logical` e criar tabelas manualmente.
+
+2. **PostgreSQL replication role:** O usuário `demouser` precisa de `ALTER ROLE demouser REPLICATION` para que o Debezium crie replication slots.
+
+3. **PVC órfão bloqueando sync:** Um PVC `postgresql-data` de uma configuração anterior bloqueou o sync do ArgoCD. Solução: deletar manualmente e o auto-sync prosseguiu.
+
+4. **Oracle ARCHIVELOG:** Oracle Free 23c inicia em NOARCHIVELOG mode. Requer `SHUTDOWN IMMEDIATE → STARTUP MOUNT → ALTER DATABASE ARCHIVELOG → ALTER DATABASE OPEN`.
+
+### 33.4 Experimentos validados
+
+| Experimento | Status | Resultado |
+|---|---|---|
+| A: Kafka básico (produce/consume) | ✅ | Producer envia via REST, Consumer recebe e armazena |
+| B: Partições e chaves | ✅ | 3 partições, replicação factor 3, distribuição por key hash |
+| C: PostgreSQL CDC | ✅ | INSERT, UPDATE, DELETE capturados via Debezium + pgoutput |
+| D: Oracle CDC | ✅ | INSERT, UPDATE, DELETE capturados via Debezium LogMiner |
+| E: Schema Registry | ✅ | Schemas registrados, versionados, regras de compatibilidade ativas |
+| F: Data Contract | ✅ | Schemas + metadata/labels + políticas BACKWARD + validação |
+| G: Sink Connector | ✅ | Oracle CDC → Kafka → JDBC Sink → PostgreSQL (`oracle_customers`) |
+
+### 33.5 Conceitos de Data Contract demonstrados
+
+O Apicurio Registry oferece nativamente:
+- **Schema:** Definição estrutural (JSON Schema) do evento
+- **Versionamento:** Múltiplas versões do mesmo artifact (v1.0.0, v1.1.0, v2.0.0)
+- **Compatibilidade:** Regras BACKWARD, FORWARD, FULL, NONE por artifact
+- **Metadata/Labels:** `contract-owner`, `data-classification`, `sla-availability`, `kafka-topic`, `producer-app`, `consumer-apps`
+- **Validação:** SYNTAX_ONLY ou FULL validity check no registro
+
+O que NÃO é nativo do Apicurio:
+- Enforcement automático no broker (Kafka não valida mensagens contra o Registry)
+- SLA monitoring integrado
+- Lineage/proveniência de dados
+- Políticas de acesso por aplicação
+
+A validação efetiva depende dos serializers/deserializers nas aplicações (Apicurio serde libraries) ou de mecanismos externos.
+
+### 33.6 Arquitetura final implantada
+
+```text
+                        +------------------------+
+                        |   Apicurio Registry    |
+                        |   (KafkaSQL backend)   |
+                        +----------+-------------+
+                                   |
+                          schemas / validation
+                                   |
+              +--------------------+--------------------+
+              |                                         |
+        +-----+------+                          +------+------+
+        |  Producer  |                          |  Consumer   |
+        |  (Quarkus) |                          |  (Quarkus)  |
+        +-----+------+                          +------+------+
+              |                                        ^
+              v                                        |
+              +-------------> Kafka <------------------+
+                          (3 brokers,                   
+                           KRaft mode)                  
+                              ^  ^  |
+                              |  |  v
+           +------------------+  +--+-----> Sink Connector
+           |                     |         (JDBC → PostgreSQL)
+    +------+-------+      +-----+------+
+    | Kafka Connect|      | Kafka Connect|
+    | + Debezium   |      | + Debezium   |
+    | (PostgreSQL) |      | (Oracle)     |
+    +------+-------+      +------+-------+
+           ^                      ^
+           |                      |
+    +------+-------+      +------+-------+
+    | PostgreSQL   |      | Oracle Free  |
+    | (12-el8)     |      | (23c-slim)   |
+    +--------------+      +--------------+
+```
+
+### 33.7 URLs de acesso
+
+- **Producer API:** `https://producer.apps.<domain>/api/orders` (POST)
+- **Consumer API:** `https://consumer.apps.<domain>/api/orders` (GET) + `/api/orders/count`
+- **Apicurio Registry API:** `https://apicurio-api.apps.<domain>/apis/registry/v3/`
+- **Apicurio Registry UI:** `https://apicurio-ui.apps.<domain>/`
