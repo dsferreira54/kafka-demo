@@ -611,11 +611,15 @@ async function cdcEvents(base, topic, silent = false) {
     if (!msgs.length) return setHtml(rid, '<p class="text-gray-500 italic text-sm py-2">Nenhum evento encontrado (o consumer pode levar alguns segundos).</p>');
     const html = msgs.map(m => {
       let val = m.value;
-      try { val = JSON.stringify(JSON.parse(m.value), null, 2); } catch (_) {}
+      let isTombstone = (val == null);
+      if (!isTombstone) { try { val = JSON.stringify(JSON.parse(val), null, 2); } catch (_) {} }
       const ts = m.timestamp ? parseInt(m.timestamp, 10) : trackSeen(`${base}-evt`, m.offset);
+      const body = isTombstone
+        ? '<div class="px-3 py-2 text-xs text-gray-400 italic bg-gray-50">tombstone (registro removido)</div>'
+        : `<pre class="code text-xs" style="border-radius:0">${esc(val)}</pre>`;
       return `<div class="mb-3 border rounded-lg overflow-hidden">
-        <div class="bg-gray-100 px-3 py-1.5 text-xs text-gray-600 flex items-center gap-4"><span>Partição: ${m.partition}</span><span>Offset: ${m.offset}</span><span>Key: ${esc(m.key || 'null')}</span><span class="ml-auto">${agoBadge(ts)}</span></div>
-        <pre class="code text-xs" style="border-radius:0">${esc(val)}</pre>
+        <div class="bg-gray-100 px-3 py-1.5 text-xs text-gray-600 flex items-center gap-4"><span>Partição: ${m.partition}</span><span>Offset: ${m.offset}</span><span>Key: ${esc(m.key || 'null')}</span>${isTombstone ? '<span class="text-red-400 font-medium">DELETE</span>' : ''}<span class="ml-auto">${agoBadge(ts)}</span></div>
+        ${body}
       </div>`;
     }).join('');
     setHtml(rid, html);
