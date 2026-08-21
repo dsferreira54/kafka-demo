@@ -128,7 +128,7 @@ function flowDiagram(nodes) {
 }
 
 function tip(text) {
-  return `<div class="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-r-lg mt-4"><div class="flex gap-3"><span class="text-lg">💡</span><div><p class="text-xs font-bold text-amber-800 mb-1 uppercase tracking-wide">O que explicar</p><p class="text-sm text-amber-700 leading-relaxed">${text}</p></div></div></div>`;
+  return `<div class="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-r-lg mt-4"><div class="flex gap-3"><span class="text-lg">💡</span><div><p class="text-xs font-bold text-amber-800 mb-1 uppercase tracking-wide">Contexto técnico</p><p class="text-sm text-amber-700 leading-relaxed">${text}</p></div></div></div>`;
 }
 
 function pBtn(text, fn) { return `<button onclick="${fn}" class="bg-rh-red hover:bg-red-700 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors">${text}</button>`; }
@@ -144,31 +144,69 @@ function compCard(name, desc, emoji, c) {
 
 // ── Step 0: Overview ─────────────────────────────────
 
+function archDiagram() {
+  const n = (label, sub, cls, icon) =>
+    `<div class="arch-node ${cls}"><span class="arch-icon">${icon}</span><span class="arch-label">${label}</span><span class="arch-sub">${sub}</span></div>`;
+  const arrow = (dir = 'right') =>
+    `<div class="arch-arrow arch-arrow-${dir}"><svg viewBox="0 0 24 12" fill="none" stroke="currentColor" stroke-width="2"><path d="M0 6h20M16 1l5 5-5 5"/></svg></div>`;
+  const arrowDown = () =>
+    `<div class="arch-arrow-down"><svg viewBox="0 0 12 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 0v20M1 16l5 5 5-5"/></svg></div>`;
+
+  return `<div class="arch-container">
+    <div class="arch-top-row">
+      ${n('Producer','Quarkus + SmallRye','arch-blue','📤')}
+      ${arrow()}
+      ${n('Apache Kafka','3 brokers · KRaft','arch-red','📨')}
+      ${arrow()}
+      ${n('Consumer','Quarkus + SmallRye','arch-blue','📥')}
+    </div>
+
+    <div class="arch-schema-float">
+      ${n('Apicurio Registry','Schemas · Data Contracts','arch-purple','📋')}
+      <div class="arch-schema-line"></div>
+    </div>
+
+    <div class="arch-mid-label"><span>Kafka Connect</span></div>
+
+    <div class="arch-connect-row">
+      <div class="arch-connect-group">
+        ${arrowDown()}
+        ${n('Debezium CDC','Source Connector','arch-green','🔄')}
+        ${arrowDown()}
+        ${n('PostgreSQL 12','Banco operacional','arch-indigo','🐘')}
+      </div>
+      <div class="arch-connect-group">
+        ${arrowDown()}
+        ${n('JDBC Sink','Sink Connector','arch-teal','⬇️')}
+        ${arrowDown()}
+        ${n('PostgreSQL','Destino (réplica)','arch-indigo','🐘')}
+      </div>
+      <div class="arch-connect-group">
+        ${arrowDown()}
+        ${n('Debezium CDC','Source Connector','arch-green','🔄')}
+        ${arrowDown()}
+        ${n('Oracle 23c Free','Banco legado','arch-amber','🔶')}
+      </div>
+    </div>
+  </div>`;
+}
+
 function renderOverview() {
   return `<div class="space-y-5 fade-in">
-    <div><h2 class="text-2xl font-bold">Kafka Streaming POC</h2><p class="text-gray-500 mt-1">Prova de conceito de uma arquitetura de streaming baseada no stack Red Hat: Apache Kafka, CDC com Debezium, Schema Registry com Apicurio e Data Contracts.</p></div>
+    <div><h2 class="text-2xl font-bold">Kafka Streaming POC</h2><p class="text-gray-500 mt-1">Prova de conceito de uma arquitetura de streaming baseada no stack Red Hat.</p></div>
 
-    ${card('Arquitetura', `<div class="bg-gray-50 rounded-lg p-5 font-mono text-xs overflow-x-auto"><pre class="text-center leading-relaxed text-gray-700">
-┌───────────┐          ┌─────────────────┐          ┌───────────┐
-│ Producer  │─────────▶│   Apache Kafka   │◀─────────│ Consumer  │
-│ (Quarkus) │          │   3 brokers KRaft │          │ (Quarkus) │
-└───────────┘          └────────┬────────┘          └───────────┘
-                                │
-              ┌─────────────────┼─────────────────┐
-              │                 │                 │
-     ┌────────▼────────┐  ┌────▼─────┐  ┌────────▼────────┐
-     │  Debezium CDC   │  │  JDBC    │  │  Debezium CDC   │
-     │  (PostgreSQL)   │  │  Sink    │  │  (Oracle)       │
-     └────────┬────────┘  └────┬─────┘  └────────┬────────┘
-              │                │                 │
-     ┌────────▼────────┐  ┌────▼─────┐  ┌────────▼────────┐
-     │  PostgreSQL 12  │◀─┤ destino  │  │ Oracle 23c Free │
-     └─────────────────┘  └──────────┘  └─────────────────┘
+    ${card('Cenário', `
+      <div class="flex gap-4 items-start">
+        <div class="text-3xl pt-1">🏪</div>
+        <div class="text-sm text-gray-700 leading-relaxed space-y-2">
+          <p>A <strong>TechMart</strong> é uma rede varejista de eletrônicos que opera com dois sistemas de banco de dados: um <strong>PostgreSQL</strong> para o e-commerce (cadastro de clientes, carrinho, etc.) e um <strong>Oracle</strong> legado que gerencia o ERP de lojas físicas.</p>
+          <p>Hoje, a sincronização entre os dois bancos é feita por batch noturno, o que gera atrasos e inconsistências. A proposta é adotar uma <strong>arquitetura de streaming com Apache Kafka</strong> para capturar mudanças em tempo real (CDC), integrar os sistemas e garantir governança dos dados com schemas e contratos.</p>
+          <p>Nesta POC, demonstramos como o <strong>stack Red Hat</strong> — Streams for Apache Kafka, Debezium, Apicurio Registry — resolve esse problema, desde a publicação de pedidos até a replicação cross-database e a evolução segura de schemas.</p>
+        </div>
+      </div>
+    `)}
 
-                    ┌─────────────────┐
-                    │ Apicurio Regis. │
-                    │ (Schema/Contrat)│
-                    └─────────────────┘</pre></div>`)}
+    ${card('Arquitetura', archDiagram())}
 
     ${card('Componentes', `<div class="grid grid-cols-2 lg:grid-cols-3 gap-3">
       ${compCard('Apache Kafka','3 brokers, KRaft mode','📨','red')}
@@ -189,7 +227,7 @@ function renderOverview() {
       ${CFG.consumerUrl ? eLink(CFG.consumerUrl + '/q/health', 'Consumer Health') : ''}
     </div>`)}
 
-    ${tip('"Esta POC demonstra como o stack Red Hat pode substituir uma plataforma Confluent. Vamos percorrer cada componente: pub/sub básico, CDC de PostgreSQL e Oracle, Sink Connector, Schema Registry e Data Contracts."')}
+    ${tip('Esta POC demonstra como o stack Red Hat pode substituir uma plataforma Confluent. O percurso cobre: publicação e consumo de eventos (pub/sub), captura de mudanças em PostgreSQL e Oracle via Debezium (CDC), replicação cross-database com Sink Connector, e governança de dados com Schema Registry e Data Contracts no Apicurio.')}
   </div>`;
 }
 

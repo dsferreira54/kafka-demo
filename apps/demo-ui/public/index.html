@@ -32,6 +32,32 @@
     .live-dot { width:7px; height:7px; border-radius:50%; background:#10b981; animation:livePulse 2s ease-in-out infinite }
     @keyframes livePulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(16,185,129,.4)} 50%{opacity:.7;box-shadow:0 0 0 4px rgba(16,185,129,0)} }
     ::-webkit-scrollbar { width:6px } ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:3px }
+
+    /* Architecture diagram */
+    .arch-container { padding:8px 0 }
+    .arch-top-row { display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:12px; flex-wrap:wrap }
+    .arch-node { display:flex; flex-direction:column; align-items:center; text-align:center; padding:12px 16px; border-radius:12px; border:2px solid; min-width:110px; position:relative; transition:transform .15s, box-shadow .15s }
+    .arch-node:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,.1) }
+    .arch-icon { font-size:1.4rem; margin-bottom:4px }
+    .arch-label { font-size:.75rem; font-weight:700; line-height:1.2 }
+    .arch-sub { font-size:.6rem; color:#6b7280; margin-top:2px; line-height:1.2 }
+    .arch-blue { background:#eff6ff; border-color:#93c5fd; color:#1e40af }
+    .arch-red { background:#fef2f2; border-color:#fca5a5; color:#991b1b }
+    .arch-green { background:#f0fdf4; border-color:#86efac; color:#166534 }
+    .arch-indigo { background:#eef2ff; border-color:#a5b4fc; color:#3730a3 }
+    .arch-amber { background:#fffbeb; border-color:#fcd34d; color:#92400e }
+    .arch-teal { background:#f0fdfa; border-color:#5eead4; color:#115e59 }
+    .arch-purple { background:#faf5ff; border-color:#c4b5fd; color:#5b21b6 }
+    .arch-arrow { width:32px; display:flex; align-items:center; color:#9ca3af }
+    .arch-arrow svg { width:100% }
+    .arch-arrow-down { display:flex; justify-content:center; padding:4px 0; color:#9ca3af }
+    .arch-arrow-down svg { height:20px }
+    .arch-mid-label { text-align:center; margin:8px 0 4px; font-size:.65rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#6b7280 }
+    .arch-mid-label span { background:#f3f4f6; padding:2px 12px; border-radius:9999px; border:1px solid #e5e7eb }
+    .arch-connect-row { display:flex; justify-content:center; gap:24px; flex-wrap:wrap }
+    .arch-connect-group { display:flex; flex-direction:column; align-items:center; gap:0 }
+    .arch-schema-float { text-align:center; margin:-4px 0 8px; position:relative }
+    .arch-schema-line { width:1px; height:12px; background:#c4b5fd; margin:0 auto }
   </style>
 </head>
 <body class="flex h-screen bg-gray-50 text-gray-900 overflow-hidden">
