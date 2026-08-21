@@ -197,6 +197,40 @@ app.get('/api/kafka/consume/:topic', async (req, res) => {
   finally { await consumer.disconnect().catch(() => {}); }
 });
 
+// ---------- Reset POC ----------
+app.post('/api/reset', async (_req, res) => {
+  const log = [];
+  try {
+    await pgPool.query('DELETE FROM customers');
+    await pgPool.query('ALTER SEQUENCE customers_id_seq RESTART WITH 1');
+    await pgPool.query(`INSERT INTO customers (name, email, city) VALUES
+      ('Alice Silva',     'alice@techmart.com',   'São Paulo'),
+      ('Bob Santos',      'bob@techmart.com',     'Rio de Janeiro'),
+      ('Carlos Oliveira', 'carlos@techmart.com',  'Belo Horizonte')`);
+    log.push('PostgreSQL customers: reset (3 registros iniciais)');
+  } catch (e) { log.push(`PostgreSQL customers: erro — ${e.message}`); }
+
+  try {
+    await pgPool.query('DROP TABLE IF EXISTS oracle_customers');
+    log.push('PostgreSQL oracle_customers: tabela removida');
+  } catch (e) { log.push(`PostgreSQL oracle_customers: erro — ${e.message}`); }
+
+  try {
+    await oraExec('DELETE FROM CUSTOMERS');
+    await oraExec("INSERT INTO CUSTOMERS (NAME, EMAIL, CITY) VALUES ('Maria Costa',    'maria@techmart.com', 'Curitiba')");
+    await oraExec("INSERT INTO CUSTOMERS (NAME, EMAIL, CITY) VALUES ('João Pereira',   'joao@techmart.com',  'Porto Alegre')");
+    await oraExec("INSERT INTO CUSTOMERS (NAME, EMAIL, CITY) VALUES ('Ana Lima',       'ana@techmart.com',   'Brasília')");
+    log.push('Oracle customers: reset (3 registros iniciais)');
+  } catch (e) { log.push(`Oracle customers: erro — ${e.message}`); }
+
+  try {
+    await fetch(`${APICURIO_URL}/apis/registry/v3/groups/default/artifacts/demo-order`, { method: 'DELETE' }).catch(() => {});
+    log.push('Apicurio: artifact demo-order removido');
+  } catch (_) {}
+
+  res.json({ status: 'ok', actions: log });
+});
+
 // SPA fallback
 app.get('*', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 

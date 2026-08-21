@@ -847,6 +847,33 @@ function renderNav() {
   }).join('');
 }
 
+// ── Reset ────────────────────────────────────────────
+
+async function resetPoc() {
+  if (!confirm('Restaurar a POC ao estado inicial?\n\nIsso vai resetar os bancos de dados (PostgreSQL e Oracle) com a carga inicial e remover artefatos do Apicurio Registry.')) return;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50';
+  overlay.innerHTML = '<div class="bg-white rounded-xl shadow-2xl p-8 max-w-md mx-4 text-center"><div class="spinner mb-4" style="width:2rem;height:2rem;border-width:3px"></div><p class="text-sm text-gray-700 font-medium">Restaurando estado inicial...</p></div>';
+  document.body.appendChild(overlay);
+
+  try {
+    const data = await api('/api/reset', { method: 'POST' });
+    Object.keys(_seen).forEach(k => delete _seen[k]);
+    overlay.innerHTML = `<div class="bg-white rounded-xl shadow-2xl p-8 max-w-md mx-4">
+      <p class="text-green-700 font-bold text-base mb-3">Estado restaurado</p>
+      <ul class="text-sm text-gray-600 space-y-1">${(data.actions || []).map(a => `<li class="flex items-start gap-2"><span class="text-green-500 mt-0.5">✓</span>${a}</li>`).join('')}</ul>
+      <button onclick="this.closest('.fixed').remove();goTo(step)" class="mt-5 w-full bg-rh-red hover:bg-red-700 text-white text-sm font-medium rounded-lg px-4 py-2 transition-colors">Fechar</button>
+    </div>`;
+  } catch (e) {
+    overlay.innerHTML = `<div class="bg-white rounded-xl shadow-2xl p-8 max-w-md mx-4">
+      <p class="text-red-700 font-bold text-base mb-2">Erro ao restaurar</p>
+      <p class="text-sm text-gray-600">${e.message}</p>
+      <button onclick="this.closest('.fixed').remove()" class="mt-4 w-full bg-gray-200 hover:bg-gray-300 text-gray-700 text-sm font-medium rounded-lg px-4 py-2 transition-colors">Fechar</button>
+    </div>`;
+  }
+}
+
 // ── Init ─────────────────────────────────────────────
 
 document.addEventListener('DOMContentLoaded', async () => {
