@@ -1,3 +1,39 @@
-# Set automatically by deploy.sh via ArgoCD helm parameter.
-# Override manually: oc get ingresses.config/cluster -o jsonpath='{.spec.domain}'
 ingressDomain: ""
+
+namespaces:
+  kafka: kafka-demo
+
+amqStreams:
+  enabled: true
+  channel: stable
+
+kafka:
+  enabled: true
+  replicas: 3
+  storage:
+    size: 10Gi
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
+
+apicurio:
+  enabled: false
+
+kafkaConnect:
+  enabled: false
+
+postgresql:
+  enabled: false
+
+oracle:
+  enabled: false
+
+apps:
+  producer:
+    enabled: false
+  consumer:
+    enabled: false

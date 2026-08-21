@@ -1,0 +1,33 @@
+{{- if .Values.kafka.enabled }}
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaNodePool
+metadata:
+  name: combined
+  namespace: {{ .Values.namespaces.kafka }}
+  labels:
+    strimzi.io/cluster: kafka-cluster
+    app.kubernetes.io/name: kafka-node-pool
+    app.kubernetes.io/part-of: kafka-demo
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+spec:
+  replicas: {{ .Values.kafka.replicas }}
+  roles:
+    - controller
+    - broker
+  storage:
+    type: jbod
+    volumes:
+      - id: 0
+        type: persistent-claim
+        size: {{ .Values.kafka.storage.size }}
+        deleteClaim: true
+  resources:
+    requests:
+      cpu: {{ .Values.kafka.resources.requests.cpu | quote }}
+      memory: {{ .Values.kafka.resources.requests.memory | quote }}
+    limits:
+      cpu: {{ .Values.kafka.resources.limits.cpu | quote }}
+      memory: {{ .Values.kafka.resources.limits.memory | quote }}
+{{- end }}
