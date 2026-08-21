@@ -39,9 +39,6 @@ spec:
         kind: ImageStreamTag
         namespace: openshift
         name: "nodejs:20-ubi9"
-      env:
-        - name: NPM_MIRROR
-          value: ""
   output:
     to:
       kind: ImageStreamTag
