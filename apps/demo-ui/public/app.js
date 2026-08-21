@@ -459,11 +459,12 @@ async function loadOrders(silent = false) {
   try {
     const data = await api('/api/consumer/orders');
     const arr = Array.isArray(data) ? data : [];
-    const rows = arr.map(o => {
+    const items = arr.map(o => {
       const ts = o.timestamp ? new Date(o.timestamp).getTime() : trackSeen('orders', o.orderId || o.customerName);
-      return [o.orderId || '-', o.customerName, o.product, o.quantity, o.price, agoBadge(ts)];
+      return { ts, row: [o.orderId || '-', o.customerName, o.product, o.quantity, o.price, agoBadge(ts)] };
     });
-    showTable('r-orders', ['ID', 'Cliente', 'Produto', 'Qtd', 'Preço', ''], rows, [5]);
+    items.sort((a, b) => b.ts - a.ts);
+    showTable('r-orders', ['ID', 'Cliente', 'Produto', 'Qtd', 'Preço', ''], items.map(i => i.row), [5]);
     setHtml('r-count', `${rows.length} pedido(s)`);
   } catch (e) { if (!silent) showErr('r-orders', e.message); }
 }
@@ -545,11 +546,12 @@ async function cdcTable(base, silent = false) {
     const data = await api(`/api/${base === 'pg' ? 'pg' : 'oracle'}/customers`);
     const cols = base === 'pg' ? ['id','name','email','city'] : ['ID','NAME','EMAIL','CITY'];
     const ns = `${base}-cust`;
-    const rows = data.map(r => {
+    const items = data.map(r => {
       const ts = (base === 'pg' && r.created_at) ? new Date(r.created_at).getTime() : trackSeen(ns, r[cols[0]]);
-      return [...cols.map(k => r[k]), agoBadge(ts)];
+      return { ts, row: [...cols.map(k => r[k]), agoBadge(ts)] };
     });
-    showTable(rid, [...cols, ''], rows, [cols.length]);
+    items.sort((a, b) => b.ts - a.ts);
+    showTable(rid, [...cols, ''], items.map(i => i.row), [cols.length]);
   } catch (e) { if (!silent) showErr(rid, e.message); }
 }
 
@@ -580,11 +582,12 @@ async function sinkSource(silent = false) {
   if (!$(rid)) return;
   try {
     const data = await api('/api/oracle/customers');
-    const rows = data.map(r => {
+    const items = data.map(r => {
       const ts = trackSeen('sink-src', r.ID);
-      return [r.ID, r.NAME, r.EMAIL, r.CITY, agoBadge(ts)];
+      return { ts, row: [r.ID, r.NAME, r.EMAIL, r.CITY, agoBadge(ts)] };
     });
-    showTable(rid, ['ID','Nome','Email','Cidade',''], rows, [4]);
+    items.sort((a, b) => b.ts - a.ts);
+    showTable(rid, ['ID','Nome','Email','Cidade',''], items.map(i => i.row), [4]);
   } catch (e) { if (!silent) showErr(rid, e.message); }
 }
 
@@ -595,12 +598,13 @@ async function sinkDest(silent = false) {
     const data = await api('/api/pg/oracle-customers');
     const keys = data.length ? Object.keys(data[0]) : [];
     const badgeCol = keys.length;
-    const rows = data.map(r => {
+    const items = data.map(r => {
       const id = r[keys[0]] || JSON.stringify(keys.map(k => r[k]));
       const ts = trackSeen('sink-dst', id);
-      return [...keys.map(k => r[k]), agoBadge(ts)];
+      return { ts, row: [...keys.map(k => r[k]), agoBadge(ts)] };
     });
-    showTable(rid, [...keys, ''], rows, [badgeCol]);
+    items.sort((a, b) => b.ts - a.ts);
+    showTable(rid, [...keys, ''], items.map(i => i.row), [badgeCol]);
   } catch (e) { if (!silent) showErr(rid, e.message); }
 }
 
@@ -685,11 +689,12 @@ async function listArtifacts() {
     const data = await api('/api/apicurio/search/artifacts?limit=50');
     const artifacts = data.artifacts || [];
     if (!artifacts.length) return setHtml(rid, '<p class="text-gray-500 italic text-sm">Nenhum artifact registrado.</p>');
-    const rows = artifacts.map(a => {
+    const items = artifacts.map(a => {
       const ts = a.createdOn ? new Date(a.createdOn).getTime() : trackSeen('artifacts', a.artifactId);
-      return [a.artifactId, a.artifactType, a.name || '-', agoBadge(ts)];
+      return { ts, row: [a.artifactId, a.artifactType, a.name || '-', agoBadge(ts)] };
     });
-    showTable(rid, ['Artifact ID', 'Tipo', 'Nome', ''], rows, [3]);
+    items.sort((a, b) => b.ts - a.ts);
+    showTable(rid, ['Artifact ID', 'Tipo', 'Nome', ''], items.map(i => i.row), [3]);
   } catch (e) { showErr(rid, e.message); }
 }
 
