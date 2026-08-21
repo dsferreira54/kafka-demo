@@ -1,0 +1,32 @@
+{{- if .Values.oracle.enabled }}
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: debezium-oracle
+  namespace: {{ .Values.namespaces.kafka }}
+  labels:
+    strimzi.io/cluster: kafka-connect
+    app.kubernetes.io/name: debezium-oracle
+    app.kubernetes.io/part-of: kafka-demo
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/sync-wave: "50"
+spec:
+  class: io.debezium.connector.oracle.OracleConnector
+  tasksMax: 1
+  config:
+    database.hostname: oracle.{{ .Values.namespaces.kafka }}.svc
+    database.port: 1521
+    database.user: C##DBZUSER
+    database.password: "${env:ORACLE_PASSWORD}"
+    database.dbname: FREE
+    database.pdb.name: FREEPDB1
+    topic.prefix: oracle
+    table.include.list: DEBEZIUM.CUSTOMERS
+    schema.history.internal.kafka.bootstrap.servers: kafka-cluster-kafka-bootstrap.{{ .Values.namespaces.kafka }}.svc:9092
+    schema.history.internal.kafka.topic: oracle-schema-history
+    log.mining.strategy: online_catalog
+    log.mining.continuous.mine: true
+    decimal.handling.mode: double
+    snapshot.mode: no_data
+{{- end }}
