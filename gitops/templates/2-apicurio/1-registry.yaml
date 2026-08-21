@@ -21,8 +21,34 @@ spec:
         value: "true"
     ingress:
       enabled: true
+      host: {{ printf "apicurio-api.%s" .Values.ingressDomain | quote }}
     storage:
       type: kafkasql
       kafkasql:
         bootstrapServers: kafka-cluster-kafka-bootstrap.{{ .Values.namespaces.kafka }}.svc:9092
+  ui:
+    ingress:
+      host: {{ printf "apicurio-ui.%s" .Values.ingressDomain | quote }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apicurio-ui-config
+  namespace: {{ .Values.namespaces.kafka }}
+  labels:
+    app.kubernetes.io/name: apicurio-registry
+    app.kubernetes.io/part-of: kafka-demo
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/sync-wave: "25"
+data:
+  config.js: |
+    const ApicurioRegistryConfig = {
+        "artifacts": {
+            "url": "https://{{ printf "apicurio-api.%s" .Values.ingressDomain }}/apis/registry/v3"
+        },
+        "ui": {},
+        "auth": {},
+        "features": {}
+    };
 {{- end }}
