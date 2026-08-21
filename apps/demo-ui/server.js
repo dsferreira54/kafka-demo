@@ -72,6 +72,8 @@ app.get('/api/config', (_req, res) => {
     producerUrl:    process.env.PRODUCER_EXT_URL  || '',
     consumerUrl:    process.env.CONSUMER_EXT_URL  || '',
     apicurioApiUrl: process.env.APICURIO_API_URL  || '',
+    consoleUrl:     process.env.OPENSHIFT_CONSOLE_URL || '',
+    repoUrl:        process.env.REPO_URL         || '',
   });
 });
 

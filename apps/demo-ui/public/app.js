@@ -147,6 +147,84 @@ function scenario(text) {
   </div>`;
 }
 
+// ── Under the Hood ───────────────────────────────────
+
+const OC_KINDS = {
+  Kafka:            'kafka.strimzi.io~v1beta2~Kafka',
+  KafkaNodePool:    'kafka.strimzi.io~v1beta2~KafkaNodePool',
+  KafkaTopic:       'kafka.strimzi.io~v1beta2~KafkaTopic',
+  KafkaConnect:     'kafka.strimzi.io~v1beta2~KafkaConnect',
+  KafkaConnector:   'kafka.strimzi.io~v1beta2~KafkaConnector',
+  ApicurioRegistry: 'registry.apicur.io~v1~ApicurioRegistry3',
+  Deployment:       'apps~v1~Deployment',
+  Service:          'core~v1~Service',
+  Secret:           'core~v1~Secret',
+  ConfigMap:        'core~v1~ConfigMap',
+  Route:            'route.openshift.io~v1~Route',
+  NetworkPolicy:    'networking.k8s.io~v1~NetworkPolicy',
+  PVC:              'core~v1~PersistentVolumeClaim',
+  ServiceAccount:   'core~v1~ServiceAccount',
+};
+
+function ocLink(kind, name) {
+  if (!CFG.consoleUrl) return null;
+  const k = OC_KINDS[kind];
+  if (!k) return `${CFG.consoleUrl}/k8s/ns/kafka-demo/${kind.toLowerCase()}s/${name}`;
+  return `${CFG.consoleUrl}/k8s/ns/kafka-demo/${k}/${name}`;
+}
+
+function ghLink(templatePath) {
+  const repo = CFG.repoUrl || 'https://github.com/dsferreira54/kafka-demo';
+  return `${repo}/blob/main/gitops/templates/${templatePath}`;
+}
+
+const HOOD_ICONS = {
+  Kafka:            ['K', 'bg-red-100 text-red-700'],
+  KafkaNodePool:    ['NP', 'bg-red-50 text-red-600'],
+  KafkaTopic:       ['T',  'bg-red-50 text-red-600'],
+  KafkaConnect:     ['KC', 'bg-purple-100 text-purple-700'],
+  KafkaConnector:   ['Co', 'bg-teal-100 text-teal-700'],
+  ApicurioRegistry: ['AR', 'bg-purple-100 text-purple-700'],
+  Deployment:       ['D',  'bg-blue-100 text-blue-700'],
+  Service:          ['S',  'bg-gray-100 text-gray-700'],
+  Secret:           ['Se', 'bg-yellow-100 text-yellow-700'],
+  ConfigMap:        ['CM', 'bg-gray-100 text-gray-600'],
+  Route:            ['R',  'bg-green-100 text-green-700'],
+  NetworkPolicy:    ['NP', 'bg-gray-100 text-gray-600'],
+};
+
+function hoodResource(kind, name, desc, templatePath) {
+  const [letter, cls] = HOOD_ICONS[kind] || ['?', 'bg-gray-100 text-gray-600'];
+  const oc = ocLink(kind, name);
+  const gh = templatePath ? ghLink(templatePath) : null;
+  return `<div class="hood-res">
+    <div class="hood-icon ${cls}">${letter}</div>
+    <div class="min-w-0">
+      <div class="hood-name">${esc(name)}</div>
+      <div class="hood-desc">${desc}</div>
+    </div>
+    <div class="hood-links">
+      ${oc ? `<a href="${oc}" target="_blank" class="hood-link hood-link-oc">OpenShift</a>` : ''}
+      ${gh ? `<a href="${gh}" target="_blank" class="hood-link hood-link-gh">YAML</a>` : ''}
+    </div>
+  </div>`;
+}
+
+function hoodFlow(nodes) {
+  return `<div class="hood-flow">${nodes.map((n, i) =>
+    `<span class="hood-flow-node ${n[1]}">${n[0]}</span>${i < nodes.length - 1 ? '<span class="hood-flow-arrow">→</span>' : ''}`
+  ).join('')}</div>`;
+}
+
+function underTheHood(flowHtml, resources, explanation) {
+  return `<div class="hood-card mt-5">
+    <div class="hood-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>Debaixo do Capô</div>
+    ${flowHtml}
+    ${explanation ? `<p class="text-xs text-gray-500 leading-relaxed mb-3">${explanation}</p>` : ''}
+    <div class="divide-y divide-gray-100">${resources}</div>
+  </div>`;
+}
+
 function compCard(name, desc, emoji, c) {
   return `<div class="flex items-center gap-3 p-3 rounded-lg bg-${c}-50 border border-${c}-200"><span class="text-xl">${emoji}</span><div><p class="font-medium text-sm">${name}</p><p class="text-xs text-gray-500">${desc}</p></div></div>`;
 }
@@ -267,6 +345,22 @@ function renderKafka() {
     `)}
 
     ${tip('"O Producer é uma aplicação Quarkus que recebe pedidos via REST e publica no tópico <code>orders</code> do Kafka usando SmallRye Reactive Messaging. O Consumer consome do mesmo tópico e expõe via REST. Isso demonstra o padrão pub/sub: publisher → broker → subscriber."')}
+
+    ${underTheHood(
+      hoodFlow([
+        ['Producer (Quarkus)', 'bg-blue-50 border-blue-200 text-blue-800'],
+        ['Kafka Cluster', 'bg-red-50 border-red-200 text-red-800'],
+        ['Tópico orders', 'bg-red-50 border-red-200 text-red-700'],
+        ['Consumer (Quarkus)', 'bg-blue-50 border-blue-200 text-blue-800'],
+      ]),
+      hoodResource('Kafka', 'kafka-cluster', 'Cluster Kafka com 3 brokers em modo KRaft — define listeners, storage e replicação', '1-amq-streams/2-kafka.yaml') +
+      hoodResource('KafkaTopic', 'orders', 'Tópico <code>orders</code> com 3 partições e fator de replicação 3', '1-amq-streams/3-topics.yaml') +
+      hoodResource('Deployment', 'kafka-producer', 'Aplicação Quarkus que expõe REST <code>/api/orders</code> e publica no Kafka via SmallRye', '3-apps/0-producer.yaml') +
+      hoodResource('Deployment', 'kafka-consumer', 'Aplicação Quarkus que consome do tópico <code>orders</code> e expõe via REST', '3-apps/1-consumer.yaml') +
+      hoodResource('Route', 'kafka-producer', 'Rota externa para o Producer', '3-apps/0-producer.yaml') +
+      hoodResource('Route', 'kafka-consumer', 'Rota externa para o Consumer', '3-apps/1-consumer.yaml'),
+      'O <strong>Kafka CR</strong> instrui o Strimzi Operator a criar os 3 brokers como StatefulSet. O <strong>KafkaTopic CR</strong> cria o tópico <code>orders</code>. O Producer recebe pedidos via REST e usa SmallRye Reactive Messaging para publicá-los. O Consumer lê do mesmo tópico e armazena em memória.'
+    )}
   </div>`;
 }
 
@@ -291,13 +385,26 @@ function renderTopics() {
     `)}
 
     ${tip('"Cada tópico é dividido em partições. As partições permitem paralelismo no consumo e distribuição de carga entre brokers. Mensagens com a mesma chave vão para a mesma partição, garantindo ordenação por chave. O fator de replicação define quantas cópias existem para alta disponibilidade."')}
+
+    ${underTheHood(
+      hoodFlow([
+        ['Kafka CR', 'bg-red-50 border-red-200 text-red-800'],
+        ['KafkaNodePool', 'bg-red-50 border-red-200 text-red-700'],
+        ['3 Brokers (StatefulSet)', 'bg-gray-100 border-gray-300 text-gray-700'],
+        ['KafkaTopic CRs', 'bg-red-50 border-red-200 text-red-700'],
+      ]),
+      hoodResource('Kafka', 'kafka-cluster', 'Define o cluster: versão Kafka 4.2.0, modo KRaft (sem ZooKeeper), listeners e autorização', '1-amq-streams/2-kafka.yaml') +
+      hoodResource('KafkaNodePool', 'combined', 'Pool de 3 nós com roles broker+controller, storage de 10Gi cada', '1-amq-streams/1-kafka-node-pool.yaml') +
+      hoodResource('KafkaTopic', 'orders', 'Tópico <code>orders</code> — partições e replicação definidos declarativamente', '1-amq-streams/3-topics.yaml'),
+      'O <strong>Kafka CR</strong> define a configuração do cluster (KRaft, listeners). O <strong>KafkaNodePool CR</strong> especifica quantos nós, seus roles e storage. O Strimzi Operator reconcilia esses CRs e cria um StatefulSet com 3 pods. Os <strong>KafkaTopic CRs</strong> criam os tópicos declarativamente — o Entity Topic Operator monitora esses CRs e gerencia os tópicos no cluster.'
+    )}
   </div>`;
 }
 
 // ── Generic CDC renderer ─────────────────────────────
 
 function cdcStep(opts) {
-  const { title, desc, dbLabel, dbEmoji, dbColor, apiBase, cdcTopic, tipText, scenarioText } = opts;
+  const { title, desc, dbLabel, dbEmoji, dbColor, apiBase, cdcTopic, tipText, scenarioText, hoodHtml } = opts;
   return `<div class="space-y-5 fade-in">
     <div><h2 class="text-2xl font-bold">${title}</h2><p class="text-gray-500 mt-1">${desc}</p></div>
 
@@ -338,6 +445,8 @@ function cdcStep(opts) {
     `)}
 
     ${tip(tipText)}
+
+    ${hoodHtml || ''}
   </div>`;
 }
 
@@ -349,6 +458,21 @@ function renderPgCDC() {
     apiBase: 'pg', cdcTopic: 'debezium.public.customers',
     scenarioText: 'O <strong>PostgreSQL</strong> é o banco do e-commerce da <strong>TechMart</strong>, onde ficam os cadastros de clientes online. Quando a equipe de CRM atualiza um e-mail, o marketing cria uma segmentação ou o suporte corrige um endereço, essas mudanças precisam ser propagadas <strong>em tempo real</strong> para analytics, personalização e outros microsserviços — sem alterar o código da aplicação original. O Debezium resolve isso capturando cada operação diretamente do log de transações do banco.',
     tipText: '"O Debezium usa logical replication do PostgreSQL (pgoutput plugin) para capturar mudanças em tempo real. Cada operação no banco gera um evento com o tipo de operação (c=create, u=update, d=delete), os dados antes e depois, e metadados da origem."',
+    hoodHtml: underTheHood(
+      hoodFlow([
+        ['PostgreSQL', 'bg-indigo-50 border-indigo-200 text-indigo-800'],
+        ['WAL (pgoutput)', 'bg-indigo-50 border-indigo-200 text-indigo-600'],
+        ['Debezium Connector', 'bg-green-50 border-green-200 text-green-800'],
+        ['KafkaConnect', 'bg-purple-50 border-purple-200 text-purple-800'],
+        ['Kafka Topic', 'bg-red-50 border-red-200 text-red-800'],
+      ]),
+      hoodResource('Deployment', 'postgresql', 'PostgreSQL 12 com <code>wal_level=logical</code> habilitado para CDC', '4-databases/0-postgresql.yaml') +
+      hoodResource('Secret', 'postgresql-secret', 'Credenciais do banco (usuário, senha, nome do banco)', '4-databases/0-postgresql.yaml') +
+      hoodResource('ConfigMap', 'postgresql-config', 'Configuração customizada: <code>wal_level=logical</code>', '4-databases/0-postgresql.yaml') +
+      hoodResource('KafkaConnect', 'kafka-connect', 'Cluster Kafka Connect com plugins Debezium compilados via build S2I', '5-kafka-connect/0-kafka-connect.yaml') +
+      hoodResource('KafkaConnector', 'debezium-postgres', 'Source Connector: lê WAL do PostgreSQL e publica em <code>debezium.public.customers</code>', '5-kafka-connect/1-pg-connector.yaml'),
+      'O <strong>Deployment</strong> do PostgreSQL é configurado com <code>wal_level=logical</code> via ConfigMap. O <strong>KafkaConnect CR</strong> instrui o Strimzi a construir uma imagem Docker com os plugins Debezium. O <strong>KafkaConnector CR</strong> <code>debezium-postgres</code> configura a conexão ao banco, o slot de replicação (<code>debezium_slot</code>) e o prefixo de tópico (<code>debezium</code>). O Debezium lê o WAL e publica eventos no tópico <code>debezium.public.customers</code>.'
+    ),
   });
 }
 
@@ -360,6 +484,21 @@ function renderOraCDC() {
     apiBase: 'ora', cdcTopic: 'oracle.DEBEZIUM.CUSTOMERS',
     scenarioText: 'O <strong>Oracle</strong> é o banco legado do ERP de lojas físicas da <strong>TechMart</strong>. Quando um vendedor cadastra ou atualiza um cliente no sistema da loja, essa informação fica "presa" no Oracle. Para construir uma <strong>visão unificada do cliente</strong> (loja + e-commerce), a TechMart precisa capturar essas mudanças sem modificar o ERP legado. O Debezium com LogMiner faz isso lendo diretamente os redo logs do Oracle.',
     tipText: '"O Debezium usa Oracle LogMiner para capturar mudanças, sem necessidade de triggers ou polling. O LogMiner lê os redo logs do banco e extrai as operações DML. É a mesma tecnologia usada pelo CDC em produção, mas aqui com Oracle 23c Free."',
+    hoodHtml: underTheHood(
+      hoodFlow([
+        ['Oracle 23c', 'bg-amber-50 border-amber-200 text-amber-800'],
+        ['Redo Logs (LogMiner)', 'bg-amber-50 border-amber-200 text-amber-600'],
+        ['Debezium Connector', 'bg-green-50 border-green-200 text-green-800'],
+        ['KafkaConnect', 'bg-purple-50 border-purple-200 text-purple-800'],
+        ['Kafka Topic', 'bg-red-50 border-red-200 text-red-800'],
+      ]),
+      hoodResource('Deployment', 'oracle', 'Oracle Database Free 23c com ARCHIVELOG e supplemental logging habilitados', '4-databases/1-oracle.yaml') +
+      hoodResource('Secret', 'oracle-secret', 'Senha do banco Oracle', '4-databases/1-oracle.yaml') +
+      hoodResource('ServiceAccount', 'oracle-sa', 'ServiceAccount com SCC <code>anyuid</code> (Oracle precisa rodar como root)', '4-databases/1-oracle.yaml') +
+      hoodResource('KafkaConnect', 'kafka-connect', 'Cluster Kafka Connect com plugin <code>debezium-connector-oracle</code>', '5-kafka-connect/0-kafka-connect.yaml') +
+      hoodResource('KafkaConnector', 'debezium-oracle', 'Source Connector: lê redo logs via LogMiner e publica em <code>oracle.DEBEZIUM.CUSTOMERS</code>', '5-kafka-connect/2-oracle-connector.yaml'),
+      'O <strong>Deployment</strong> do Oracle usa a imagem <code>gvenzl/oracle-free</code> com um ServiceAccount que possui SCC <code>anyuid</code> (Oracle precisa de UID fixo). O banco é configurado com ARCHIVELOG e supplemental logging. O <strong>KafkaConnector CR</strong> <code>debezium-oracle</code> usa um usuário comum <code>C##DBZUSER</code> no CDB com permissões de LogMiner para capturar mudanças do PDB <code>FREEPDB1</code>.'
+    ),
   });
 }
 
@@ -386,6 +525,21 @@ function renderSink() {
     `)}
 
     ${tip('"O JDBC Sink Connector do Debezium consome eventos CDC do tópico Oracle e os replica automaticamente numa tabela PostgreSQL. Isso demonstra o conceito de Sink Connector, análogo ao fluxo Kafka → Google Cloud Storage do ambiente real. O modo upsert garante idempotência: inserções e atualizações são tratadas corretamente."')}
+
+    ${underTheHood(
+      hoodFlow([
+        ['Oracle', 'bg-amber-50 border-amber-200 text-amber-800'],
+        ['debezium-oracle', 'bg-green-50 border-green-200 text-green-800'],
+        ['Kafka Topic', 'bg-red-50 border-red-200 text-red-800'],
+        ['jdbc-sink', 'bg-teal-50 border-teal-200 text-teal-800'],
+        ['PostgreSQL', 'bg-indigo-50 border-indigo-200 text-indigo-800'],
+      ]),
+      hoodResource('KafkaConnector', 'debezium-oracle', 'Source: captura mudanças do Oracle e publica em <code>oracle.DEBEZIUM.CUSTOMERS</code>', '5-kafka-connect/2-oracle-connector.yaml') +
+      hoodResource('KafkaConnector', 'jdbc-sink-oracle-to-pg', 'Sink: consome do tópico Oracle e escreve na tabela <code>oracle_customers</code> do PostgreSQL', '5-kafka-connect/3-jdbc-sink.yaml') +
+      hoodResource('KafkaConnect', 'kafka-connect', 'Cluster Connect que executa ambos os conectores como tasks', '5-kafka-connect/0-kafka-connect.yaml') +
+      hoodResource('Deployment', 'postgresql', 'Banco de destino — tabela <code>oracle_customers</code> criada automaticamente pelo Sink', '4-databases/0-postgresql.yaml'),
+      'O <strong>debezium-oracle</strong> (Source Connector) captura mudanças do Oracle e publica no tópico <code>oracle.DEBEZIUM.CUSTOMERS</code> com schema embutido (<code>schemas.enable: true</code>). O <strong>jdbc-sink-oracle-to-pg</strong> (Sink Connector) consome desse tópico e escreve no PostgreSQL usando modo <code>upsert</code> com chave primária derivada do <code>record_key</code>. O Sink cria a tabela automaticamente se não existir.'
+    )}
   </div>`;
 }
 
@@ -404,6 +558,22 @@ function renderConnect() {
     `)}
 
     ${tip('"Kafka Connect é o framework de integração do Kafka. Ele gerencia Source Connectors (que trazem dados para o Kafka) e Sink Connectors (que levam dados do Kafka para fora). Cada connector pode ter múltiplas tasks executando em paralelo. O Strimzi operator gerencia o lifecycle dos connectors via KafkaConnector CRDs."')}
+
+    ${underTheHood(
+      hoodFlow([
+        ['KafkaConnect CR', 'bg-purple-50 border-purple-200 text-purple-800'],
+        ['Strimzi Build (S2I)', 'bg-gray-100 border-gray-300 text-gray-700'],
+        ['Connect Pod', 'bg-purple-50 border-purple-200 text-purple-700'],
+        ['KafkaConnector CRs', 'bg-teal-50 border-teal-200 text-teal-800'],
+        ['Tasks', 'bg-gray-100 border-gray-300 text-gray-700'],
+      ]),
+      hoodResource('KafkaConnect', 'kafka-connect', 'Define o cluster Connect: build com plugins Debezium (PG, Oracle, JDBC), replicas e config', '5-kafka-connect/0-kafka-connect.yaml') +
+      hoodResource('KafkaConnector', 'debezium-postgres', 'Source Connector: PostgreSQL CDC via pgoutput', '5-kafka-connect/1-pg-connector.yaml') +
+      hoodResource('KafkaConnector', 'debezium-oracle', 'Source Connector: Oracle CDC via LogMiner', '5-kafka-connect/2-oracle-connector.yaml') +
+      hoodResource('KafkaConnector', 'jdbc-sink-oracle-to-pg', 'Sink Connector: replica Oracle → PostgreSQL via JDBC', '5-kafka-connect/3-jdbc-sink.yaml') +
+      hoodResource('NetworkPolicy', 'demo-ui-to-kafka-connect', 'Permite que o demo-ui acesse a API REST do Connect (porta 8083)', '6-demo-ui/0-demo-ui.yaml'),
+      'O <strong>KafkaConnect CR</strong> instrui o Strimzi a construir uma imagem Docker customizada via S2I, incluindo os plugins Debezium (PostgreSQL, Oracle e JDBC Sink) como artefatos Maven. O annotation <code>strimzi.io/use-connector-resources: true</code> habilita o gerenciamento declarativo de conectores via <strong>KafkaConnector CRs</strong>. O Strimzi Entity Operator monitora esses CRs e cria/atualiza/remove os conectores no cluster Connect automaticamente.'
+    )}
   </div>`;
 }
 
@@ -432,6 +602,22 @@ function renderSchema() {
     `)}
 
     ${tip('"O Apicurio Registry armazena e versiona schemas que definem a estrutura dos dados trafegados no Kafka. Producers e consumers podem validar mensagens contra o schema registrado, garantindo que alterações incompatíveis sejam detectadas antes de causar falhas em produção."')}
+
+    ${underTheHood(
+      hoodFlow([
+        ['ApicurioRegistry3 CR', 'bg-purple-50 border-purple-200 text-purple-800'],
+        ['Operator', 'bg-gray-100 border-gray-300 text-gray-700'],
+        ['App Deployment', 'bg-purple-50 border-purple-200 text-purple-700'],
+        ['KafkaSQL Storage', 'bg-red-50 border-red-200 text-red-700'],
+        ['UI Deployment', 'bg-purple-50 border-purple-200 text-purple-700'],
+      ]),
+      hoodResource('ApicurioRegistry', 'apicurio-registry', 'CR que define o Apicurio Registry v3 com storage KafkaSQL', '2-apicurio/1-registry.yaml') +
+      hoodResource('Deployment', 'apicurio-registry-app-deployment', 'Backend do Registry — API REST v3 para schemas e artifacts (gerenciado pelo operator)', '') +
+      hoodResource('Deployment', 'apicurio-registry-ui-deployment', 'Frontend do Registry — UI web para navegação e gestão de schemas (gerenciado pelo operator)', '') +
+      hoodResource('Route', 'apicurio-registry-api', 'Rota externa para a API REST do Registry', '2-apicurio/2-routes.yaml') +
+      hoodResource('Route', 'apicurio-registry-ui', 'Rota externa para a UI do Registry', '2-apicurio/2-routes.yaml'),
+      'O <strong>ApicurioRegistry3 CR</strong> instrui o Apicurio Operator a criar dois Deployments: o App (API backend) e o UI (frontend web). O storage utiliza <strong>KafkaSQL</strong>, que armazena schemas como mensagens em tópicos internos do cluster Kafka — sem necessidade de banco de dados externo. As <strong>Routes</strong> expõem a API (<code>/apis/registry/v3</code>) e a UI externamente.'
+    )}
   </div>`;
 }
 
@@ -468,6 +654,17 @@ function renderContracts() {
     `)}
 
     ${tip('"Data Contracts vão além do schema: incluem metadata (quem é o owner, descrição, SLA), labels para categorização, e políticas de compatibilidade que impedem mudanças quebradoras. Quando tentamos registrar um schema incompatível, o Registry rejeita com HTTP 409 — isso é a governança em ação."')}
+
+    ${underTheHood(
+      hoodFlow([
+        ['Artifact (demo-order)', 'bg-purple-50 border-purple-200 text-purple-800'],
+        ['Compatibility Rule', 'bg-yellow-50 border-yellow-200 text-yellow-800'],
+        ['Version Check', 'bg-gray-100 border-gray-300 text-gray-700'],
+        ['Accept / Reject', 'bg-green-50 border-green-200 text-green-800'],
+      ]),
+      hoodResource('ApicurioRegistry', 'apicurio-registry', 'O mesmo Registry da página anterior — todas as APIs de Data Contracts são do Apicurio v3', '2-apicurio/1-registry.yaml'),
+      'Data Contracts são implementados usando a <strong>API REST v3</strong> do Apicurio Registry. O fluxo é: (1) registrar o artifact com <code>POST /groups/default/artifacts</code>, (2) definir regra de compatibilidade com <code>POST /groups/default/artifacts/{id}/rules</code>, (3) ao registrar nova versão com <code>POST /groups/default/artifacts/{id}/versions</code>, o Registry valida contra a regra — se incompatível, retorna <strong>HTTP 409</strong>. Labels e metadata são gerenciados via <code>PUT /groups/default/artifacts/{id}</code>.'
+    )}
   </div>`;
 }
 

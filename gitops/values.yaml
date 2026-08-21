@@ -92,6 +92,7 @@ demoUi:
   enabled: true
   replicas: 1
   contextDir: apps/demo-ui
+  repoUrl: "https://github.com/dsferreira54/kafka-demo"
   resources:
     requests:
       cpu: 100m

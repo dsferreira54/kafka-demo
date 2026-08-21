@@ -115,6 +115,10 @@ spec:
               value: {{ printf "https://producer.%s" .Values.ingressDomain | quote }}
             - name: CONSUMER_EXT_URL
               value: {{ printf "https://consumer.%s" .Values.ingressDomain | quote }}
+            - name: OPENSHIFT_CONSOLE_URL
+              value: {{ printf "https://console-openshift-console.%s" .Values.ingressDomain | quote }}
+            - name: REPO_URL
+              value: {{ .Values.demoUi.repoUrl | default "https://github.com/dsferreira54/kafka-demo" | quote }}
           resources:
             requests:
               cpu: {{ .Values.demoUi.resources.requests.cpu | quote }}
