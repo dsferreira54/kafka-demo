@@ -1,0 +1,68 @@
+{{- if .Values.kafkaConnect.enabled }}
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: kafka-connect-debezium
+  namespace: {{ .Values.namespaces.kafka }}
+  labels:
+    app.kubernetes.io/name: kafka-connect
+    app.kubernetes.io/part-of: kafka-demo
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/sync-wave: "20"
+spec:
+  lookupPolicy:
+    local: true
+---
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnect
+metadata:
+  name: kafka-connect
+  namespace: {{ .Values.namespaces.kafka }}
+  labels:
+    app.kubernetes.io/name: kafka-connect
+    app.kubernetes.io/part-of: kafka-demo
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/sync-wave: "25"
+    strimzi.io/use-connector-resources: "true"
+spec:
+  version: 4.2.0
+  replicas: {{ .Values.kafkaConnect.replicas }}
+  bootstrapServers: kafka-cluster-kafka-bootstrap:9092
+  config:
+    group.id: kafka-connect-cluster
+    offset.storage.topic: connect-offsets
+    config.storage.topic: connect-configs
+    status.storage.topic: connect-status
+    offset.storage.replication.factor: 3
+    config.storage.replication.factor: 3
+    status.storage.replication.factor: 3
+    key.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    key.converter.schemas.enable: false
+    value.converter.schemas.enable: false
+  externalConfiguration:
+    env:
+      - name: POSTGRESQL_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: postgresql-secret
+            key: database-password
+  resources:
+    requests:
+      cpu: {{ .Values.kafkaConnect.resources.requests.cpu | quote }}
+      memory: {{ .Values.kafkaConnect.resources.requests.memory | quote }}
+    limits:
+      cpu: {{ .Values.kafkaConnect.resources.limits.cpu | quote }}
+      memory: {{ .Values.kafkaConnect.resources.limits.memory | quote }}
+  build:
+    output:
+      type: imagestream
+      image: kafka-connect-debezium:latest
+    plugins:
+      - name: debezium-postgres-connector
+        artifacts:
+          - type: tgz
+            url: https://repo1.maven.org/maven2/io/debezium/debezium-connector-postgres/{{ .Values.kafkaConnect.debezium.postgresVersion }}/debezium-connector-postgres-{{ .Values.kafkaConnect.debezium.postgresVersion }}-plugin.tar.gz
+{{- end }}

@@ -26,10 +26,30 @@ apicurio:
   channel: "3.x"
 
 kafkaConnect:
-  enabled: false
+  enabled: true
+  replicas: 1
+  debezium:
+    postgresVersion: "3.6.1.Final"
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 2Gi
 
 postgresql:
-  enabled: false
+  enabled: true
+  database: demodb
+  user: demouser
+  image: "postgresql:12-el8"
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
 
 oracle:
   enabled: false

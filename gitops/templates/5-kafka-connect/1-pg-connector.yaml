@@ -1,0 +1,31 @@
+{{- if and .Values.kafkaConnect.enabled .Values.postgresql.enabled }}
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: debezium-postgres
+  namespace: {{ .Values.namespaces.kafka }}
+  labels:
+    strimzi.io/cluster: kafka-connect
+    app.kubernetes.io/name: debezium-postgres
+    app.kubernetes.io/part-of: kafka-demo
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/sync-wave: "50"
+spec:
+  class: io.debezium.connector.postgresql.PostgresConnector
+  tasksMax: 1
+  config:
+    database.hostname: postgresql.{{ .Values.namespaces.kafka }}.svc
+    database.port: "5432"
+    database.user: {{ .Values.postgresql.user }}
+    database.password: ${env:POSTGRESQL_PASSWORD}
+    database.dbname: {{ .Values.postgresql.database }}
+    topic.prefix: pg
+    plugin.name: pgoutput
+    slot.name: debezium_pg
+    publication.name: dbz_publication
+    publication.autocreate.mode: filtered
+    table.include.list: public.customers
+    schema.history.internal.kafka.bootstrap.servers: kafka-cluster-kafka-bootstrap:9092
+    schema.history.internal.kafka.topic: pg.schema-history
+{{- end }}
