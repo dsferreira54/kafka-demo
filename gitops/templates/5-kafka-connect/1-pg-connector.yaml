@@ -16,16 +16,14 @@ spec:
   tasksMax: 1
   config:
     database.hostname: postgresql.{{ .Values.namespaces.kafka }}.svc
-    database.port: "5432"
+    database.port: 5432
     database.user: {{ .Values.postgresql.user }}
-    database.password: ${env:POSTGRESQL_PASSWORD}
+    database.password: demo-password-123
     database.dbname: {{ .Values.postgresql.database }}
-    topic.prefix: pg
+    topic.prefix: debezium
     plugin.name: pgoutput
-    slot.name: debezium_pg
-    publication.name: dbz_publication
+    slot.name: debezium_slot
     publication.autocreate.mode: filtered
     table.include.list: public.customers
-    schema.history.internal.kafka.bootstrap.servers: kafka-cluster-kafka-bootstrap:9092
-    schema.history.internal.kafka.topic: pg.schema-history
+    snapshot.mode: initial
 {{- end }}

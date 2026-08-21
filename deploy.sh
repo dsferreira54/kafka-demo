@@ -95,6 +95,11 @@ spec:
           value: "${REPO_URL}"
   destination:
     server: https://kubernetes.default.svc
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/template/spec/containers/0/image
   syncPolicy:
     automated:
       prune: true
