@@ -18,7 +18,7 @@ spec:
     database.hostname: oracle.{{ .Values.namespaces.kafka }}.svc
     database.port: 1521
     database.user: C##DBZUSER
-    database.password: "${env:ORACLE_PASSWORD}"
+    database.password: {{ .Values.oracle.password }}
     database.dbname: FREE
     database.pdb.name: FREEPDB1
     topic.prefix: oracle
@@ -28,5 +28,9 @@ spec:
     log.mining.strategy: online_catalog
     log.mining.continuous.mine: true
     decimal.handling.mode: double
-    snapshot.mode: no_data
+    snapshot.mode: initial
+    key.converter: org.apache.kafka.connect.json.JsonConverter
+    key.converter.schemas.enable: true
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: true
 {{- end }}

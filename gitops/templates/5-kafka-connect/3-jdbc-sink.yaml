@@ -1,4 +1,4 @@
-{{- if and .Values.kafkaConnect.enabled .Values.postgresql.enabled }}
+{{- if and .Values.kafkaConnect.enabled .Values.postgresql.enabled .Values.oracle.enabled }}
 apiVersion: kafka.strimzi.io/v1beta2
 kind: KafkaConnector
 metadata:
@@ -18,11 +18,15 @@ spec:
     topics: oracle.DEBEZIUM.CUSTOMERS
     connection.url: "jdbc:postgresql://postgresql.{{ .Values.namespaces.kafka }}.svc:5432/{{ .Values.postgresql.database }}"
     connection.username: {{ .Values.postgresql.user }}
-    connection.password: "${env:POSTGRESQL_PASSWORD}"
+    connection.password: demo-password-123
     insert.mode: upsert
     primary.key.mode: record_key
     primary.key.fields: ID
     delete.enabled: true
     schema.evolution: basic
-    table.name.format: "oracle_customers"
+    table.name.format: oracle_customers
+    key.converter: org.apache.kafka.connect.json.JsonConverter
+    key.converter.schemas.enable: true
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter.schemas.enable: true
 {{- end }}
