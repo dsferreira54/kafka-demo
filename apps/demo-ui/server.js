@@ -1,5 +1,7 @@
 const express = require('express');
 const path = require('path');
+const https = require('https');
+const fs = require('fs');
 const { Pool } = require('pg');
 const { Kafka } = require('kafkajs');
 
@@ -31,6 +33,30 @@ const ORA_CFG = {
   password:      process.env.ORACLE_PASSWORD || 'OracleDemo123',
   connectString: process.env.ORACLE_CONNSTR  || 'oracle.kafka-demo.svc:1521/FREEPDB1',
 };
+
+let k8sCa, k8sToken, k8sNs;
+try {
+  k8sCa    = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/ca.crt');
+  k8sToken = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/token', 'utf8').trim();
+  k8sNs    = fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/namespace', 'utf8').trim();
+} catch (_) { /* not running in cluster */ }
+
+function k8sApi(method, apiPath) {
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: process.env.KUBERNETES_SERVICE_HOST,
+      port: process.env.KUBERNETES_SERVICE_PORT || 443,
+      path: apiPath, method, ca: k8sCa,
+      headers: { Authorization: `Bearer ${k8sToken}` },
+    }, res => {
+      let body = '';
+      res.on('data', d => body += d);
+      res.on('end', () => { try { resolve(JSON.parse(body)); } catch (_) { resolve({}); } });
+    });
+    req.on('error', reject);
+    req.end();
+  });
+}
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -227,6 +253,25 @@ app.post('/api/reset', async (_req, res) => {
     await fetch(`${APICURIO_URL}/apis/registry/v3/groups/default/artifacts/demo-order`, { method: 'DELETE' }).catch(() => {});
     log.push('Apicurio: artifact demo-order removido');
   } catch (_) {}
+
+  try {
+    const admin = kafka.admin();
+    await admin.connect();
+    const topics = await admin.listTopics();
+    if (topics.includes('orders')) { await admin.deleteTopics({ topics: ['orders'] }); }
+    await admin.disconnect();
+    log.push('Kafka: tópico orders removido');
+  } catch (e) { log.push(`Kafka orders: erro — ${e.message}`); }
+
+  if (k8sToken) {
+    try {
+      const pods = await k8sApi('GET', `/api/v1/namespaces/${k8sNs}/pods?labelSelector=app=kafka-consumer`);
+      for (const pod of (pods.items || [])) {
+        await k8sApi('DELETE', `/api/v1/namespaces/${k8sNs}/pods/${pod.metadata.name}`);
+      }
+      log.push('Consumer: pod reiniciado (pedidos limpos)');
+    } catch (e) { log.push(`Consumer restart: erro — ${e.message}`); }
+  }
 
   res.json({ status: 'ok', actions: log });
 });
