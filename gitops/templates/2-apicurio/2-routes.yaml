@@ -1,0 +1,45 @@
+{{- if .Values.apicurio.enabled }}
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: apicurio-registry-api
+  namespace: {{ .Values.namespaces.kafka }}
+  labels:
+    app.kubernetes.io/name: apicurio-registry-api
+    app.kubernetes.io/part-of: kafka-demo
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+spec:
+  host: {{ printf "apicurio-api.%s" .Values.ingressDomain | quote }}
+  to:
+    kind: Service
+    name: apicurio-registry-app-service
+  port:
+    targetPort: 8080
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: apicurio-registry-ui
+  namespace: {{ .Values.namespaces.kafka }}
+  labels:
+    app.kubernetes.io/name: apicurio-registry-ui
+    app.kubernetes.io/part-of: kafka-demo
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+spec:
+  host: {{ printf "apicurio-ui.%s" .Values.ingressDomain | quote }}
+  to:
+    kind: Service
+    name: apicurio-registry-ui-service
+  port:
+    targetPort: 8080
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+{{- end }}
