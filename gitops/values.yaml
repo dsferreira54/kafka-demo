@@ -1,0 +1,3 @@
+# Set automatically by deploy.sh via ArgoCD helm parameter.
+# Override manually: oc get ingresses.config/cluster -o jsonpath='{.spec.domain}'
+ingressDomain: ""
