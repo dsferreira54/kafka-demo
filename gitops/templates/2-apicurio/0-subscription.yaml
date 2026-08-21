@@ -1,0 +1,19 @@
+{{- if .Values.apicurio.enabled }}
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: apicurio-registry-3
+  namespace: openshift-operators
+  labels:
+    app.kubernetes.io/name: apicurio-registry
+    app.kubernetes.io/part-of: kafka-demo
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+spec:
+  channel: {{ .Values.apicurio.channel }}
+  installPlanApproval: Automatic
+  name: apicurio-registry-3
+  source: redhat-operators
+  sourceNamespace: openshift-marketplace
+{{- end }}

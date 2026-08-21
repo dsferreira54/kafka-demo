@@ -21,7 +21,8 @@ kafka:
       memory: 4Gi
 
 apicurio:
-  enabled: false
+  enabled: true
+  channel: "3.x"
 
 kafkaConnect:
   enabled: false
