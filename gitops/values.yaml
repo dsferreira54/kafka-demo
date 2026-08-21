@@ -29,7 +29,8 @@ kafkaConnect:
   enabled: true
   replicas: 1
   debezium:
-    postgresVersion: "3.6.1.Final"
+    version: "3.6.1.Final"
+    ojdbcVersion: "23.6.0.24.10"
   resources:
     requests:
       cpu: 500m
@@ -52,7 +53,16 @@ postgresql:
       memory: 512Mi
 
 oracle:
-  enabled: false
+  enabled: true
+  image: "docker.io/gvenzl/oracle-free:23-slim"
+  password: OracleDemo123
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2Gi
+    limits:
+      cpu: "2"
+      memory: 4Gi
 
 apps:
   producer:

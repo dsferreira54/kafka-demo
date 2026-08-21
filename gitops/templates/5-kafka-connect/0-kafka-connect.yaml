@@ -49,6 +49,13 @@ spec:
           secretKeyRef:
             name: postgresql-secret
             key: database-password
+      {{- if .Values.oracle.enabled }}
+      - name: ORACLE_PASSWORD
+        valueFrom:
+          secretKeyRef:
+            name: oracle-secret
+            key: oracle-password
+      {{- end }}
   resources:
     requests:
       cpu: {{ .Values.kafkaConnect.resources.requests.cpu | quote }}
@@ -64,5 +71,13 @@ spec:
       - name: debezium-postgres-connector
         artifacts:
           - type: tgz
-            url: https://repo1.maven.org/maven2/io/debezium/debezium-connector-postgres/{{ .Values.kafkaConnect.debezium.postgresVersion }}/debezium-connector-postgres-{{ .Values.kafkaConnect.debezium.postgresVersion }}-plugin.tar.gz
+            url: https://repo1.maven.org/maven2/io/debezium/debezium-connector-postgres/{{ .Values.kafkaConnect.debezium.version }}/debezium-connector-postgres-{{ .Values.kafkaConnect.debezium.version }}-plugin.tar.gz
+      {{- if .Values.oracle.enabled }}
+      - name: debezium-oracle-connector
+        artifacts:
+          - type: tgz
+            url: https://repo1.maven.org/maven2/io/debezium/debezium-connector-oracle/{{ .Values.kafkaConnect.debezium.version }}/debezium-connector-oracle-{{ .Values.kafkaConnect.debezium.version }}-plugin.tar.gz
+          - type: jar
+            url: https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc11/{{ .Values.kafkaConnect.debezium.ojdbcVersion }}/ojdbc11-{{ .Values.kafkaConnect.debezium.ojdbcVersion }}.jar
+      {{- end }}
 {{- end }}

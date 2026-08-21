@@ -1,0 +1,141 @@
+{{- if .Values.oracle.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: oracle-sa
+  namespace: {{ .Values.namespaces.kafka }}
+  labels:
+    app.kubernetes.io/name: oracle
+    app.kubernetes.io/part-of: kafka-demo
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/sync-wave: "35"
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: oracle-anyuid-{{ .Values.namespaces.kafka }}
+  labels:
+    app.kubernetes.io/name: oracle
+    app.kubernetes.io/part-of: kafka-demo
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/sync-wave: "35"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:openshift:scc:anyuid
+subjects:
+  - kind: ServiceAccount
+    name: oracle-sa
+    namespace: {{ .Values.namespaces.kafka }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: oracle-secret
+  namespace: {{ .Values.namespaces.kafka }}
+  labels:
+    app.kubernetes.io/name: oracle
+    app.kubernetes.io/part-of: kafka-demo
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/sync-wave: "35"
+type: Opaque
+stringData:
+  oracle-password: {{ .Values.oracle.password }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oracle
+  namespace: {{ .Values.namespaces.kafka }}
+  labels:
+    app.kubernetes.io/name: oracle
+    app.kubernetes.io/part-of: kafka-demo
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/sync-wave: "40"
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: oracle
+  template:
+    metadata:
+      labels:
+        app: oracle
+        app.kubernetes.io/name: oracle
+        app.kubernetes.io/part-of: kafka-demo
+    spec:
+      serviceAccountName: oracle-sa
+      containers:
+        - name: oracle
+          image: {{ .Values.oracle.image }}
+          ports:
+            - containerPort: 1521
+              name: oracle
+              protocol: TCP
+          env:
+            - name: ORACLE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: oracle-secret
+                  key: oracle-password
+            - name: APP_USER
+              value: debezium
+            - name: APP_USER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: oracle-secret
+                  key: oracle-password
+          volumeMounts:
+            - name: oracle-data
+              mountPath: /opt/oracle/oradata
+          resources:
+            requests:
+              cpu: {{ .Values.oracle.resources.requests.cpu | quote }}
+              memory: {{ .Values.oracle.resources.requests.memory | quote }}
+            limits:
+              cpu: {{ .Values.oracle.resources.limits.cpu | quote }}
+              memory: {{ .Values.oracle.resources.limits.memory | quote }}
+          readinessProbe:
+            exec:
+              command:
+                - /opt/oracle/healthcheck.sh
+            initialDelaySeconds: 90
+            periodSeconds: 30
+            timeoutSeconds: 10
+          livenessProbe:
+            exec:
+              command:
+                - /opt/oracle/healthcheck.sh
+            initialDelaySeconds: 120
+            periodSeconds: 60
+            timeoutSeconds: 10
+      volumes:
+        - name: oracle-data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oracle
+  namespace: {{ .Values.namespaces.kafka }}
+  labels:
+    app.kubernetes.io/name: oracle
+    app.kubernetes.io/part-of: kafka-demo
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/sync-wave: "40"
+spec:
+  selector:
+    app: oracle
+  ports:
+    - name: oracle
+      port: 1521
+      targetPort: oracle
+      protocol: TCP
+{{- end }}
