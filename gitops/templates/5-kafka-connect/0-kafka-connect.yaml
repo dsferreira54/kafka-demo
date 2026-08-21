@@ -80,4 +80,8 @@ spec:
           - type: jar
             url: https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc11/{{ .Values.kafkaConnect.debezium.ojdbcVersion }}/ojdbc11-{{ .Values.kafkaConnect.debezium.ojdbcVersion }}.jar
       {{- end }}
+      - name: debezium-jdbc-sink
+        artifacts:
+          - type: tgz
+            url: https://repo1.maven.org/maven2/io/debezium/debezium-connector-jdbc/{{ .Values.kafkaConnect.debezium.version }}/debezium-connector-jdbc-{{ .Values.kafkaConnect.debezium.version }}-plugin.tar.gz
 {{- end }}

@@ -1,0 +1,28 @@
+{{- if and .Values.kafkaConnect.enabled .Values.postgresql.enabled }}
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: jdbc-sink-oracle-to-pg
+  namespace: {{ .Values.namespaces.kafka }}
+  labels:
+    strimzi.io/cluster: kafka-connect
+    app.kubernetes.io/name: jdbc-sink
+    app.kubernetes.io/part-of: kafka-demo
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    argocd.argoproj.io/sync-wave: "55"
+spec:
+  class: io.debezium.connector.jdbc.JdbcSinkConnector
+  tasksMax: 1
+  config:
+    topics: oracle.DEBEZIUM.CUSTOMERS
+    connection.url: "jdbc:postgresql://postgresql.{{ .Values.namespaces.kafka }}.svc:5432/{{ .Values.postgresql.database }}"
+    connection.username: {{ .Values.postgresql.user }}
+    connection.password: "${env:POSTGRESQL_PASSWORD}"
+    insert.mode: upsert
+    primary.key.mode: record_key
+    primary.key.fields: ID
+    delete.enabled: true
+    schema.evolution: basic
+    table.name.format: "oracle_customers"
+{{- end }}
