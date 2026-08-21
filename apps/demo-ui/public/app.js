@@ -200,7 +200,7 @@ function cdcStep(opts) {
         ${inp(`${apiBase}-email`,'Email','ana@example.com','ana@example.com')}
         ${inp(`${apiBase}-city`,'Cidade','São Paulo','São Paulo')}
       </div>
-      ${pBtn('➕ Inserir','cdcInsert("' + apiBase + '")')}
+      ${pBtn('➕ Inserir',"cdcInsert('" + apiBase + "')")}
       ${res(`r-${apiBase}-insert`)}
     `)}
 
@@ -211,21 +211,21 @@ function cdcStep(opts) {
         ${inp(`${apiBase}-upd-val`,'Novo Valor','novo@example.com','')}
       </div>
       <div class="flex gap-2">
-        ${sBtn('✏️ Atualizar','cdcUpdate("' + apiBase + '")')}
-        ${dBtn('🗑️ Remover','cdcDelete("' + apiBase + '")')}
+        ${sBtn('✏️ Atualizar',"cdcUpdate('" + apiBase + "')")}
+        ${dBtn('🗑️ Remover',"cdcDelete('" + apiBase + "')")}
       </div>
       ${res(`r-${apiBase}-mod`)}
     `)}
 
     ${card('Dados Atuais', `
-      ${sBtn('🔄 Consultar Tabela','cdcTable("' + apiBase + '")')}
+      ${sBtn('🔄 Consultar Tabela',"cdcTable('" + apiBase + "')")}
       ${extraButtons || ''}
       ${res(`r-${apiBase}-table`)}
     `)}
 
     ${card('Eventos CDC no Kafka', `
       <p class="text-xs text-gray-500 mb-3">Tópico: <code class="bg-gray-100 px-1.5 py-0.5 rounded">${cdcTopic}</code></p>
-      ${sBtn('📡 Ver Eventos CDC','cdcEvents("' + apiBase + '","' + cdcTopic + '")')}
+      ${sBtn('📡 Ver Eventos CDC',"cdcEvents('" + apiBase + "','" + cdcTopic + "')")}
       ${res(`r-${apiBase}-cdc`)}
     `)}
 
