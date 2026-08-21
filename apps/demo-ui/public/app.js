@@ -503,7 +503,7 @@ async function loadOrders(silent = false) {
     });
     items.sort((a, b) => b.ts - a.ts);
     showTable('r-orders', ['ID', 'Cliente', 'Produto', 'Qtd', 'Preço', ''], items.map(i => i.row), [5]);
-    setHtml('r-count', `${rows.length} pedido(s)`);
+    setHtml('r-count', `${items.length} pedido(s)`);
   } catch (e) { if (!silent) showErr('r-orders', e.message); }
 }
 
