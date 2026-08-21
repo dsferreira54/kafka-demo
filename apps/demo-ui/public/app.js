@@ -579,6 +579,7 @@ async function listConnectors() {
 
 const ORDER_SCHEMA_V1 = {
   type: 'object',
+  additionalProperties: false,
   properties: {
     orderId: { type: 'string', description: 'Identificador único do pedido' },
     customerName: { type: 'string', description: 'Nome do cliente' },
@@ -591,15 +592,18 @@ const ORDER_SCHEMA_V1 = {
 };
 
 const ORDER_SCHEMA_V2 = {
-  ...ORDER_SCHEMA_V1,
+  type: 'object',
+  additionalProperties: false,
   properties: {
     ...ORDER_SCHEMA_V1.properties,
     discount: { type: 'number', description: 'Desconto aplicado (opcional)' },
   },
+  required: ['orderId', 'customerName', 'product', 'quantity', 'price'],
 };
 
 const ORDER_SCHEMA_BAD = {
   type: 'object',
+  additionalProperties: false,
   properties: {
     orderId: { type: 'string' },
     customerName: { type: 'string' },
@@ -623,6 +627,8 @@ async function listArtifacts() {
 async function registerSchema() {
   showSpin('r-register');
   try {
+    // Clean up existing artifact for repeatable demos
+    await fetch('/api/apicurio/groups/default/artifacts/demo-order', { method: 'DELETE' }).catch(() => {});
     const body = {
       artifactId: 'demo-order',
       artifactType: 'JSON',
@@ -634,7 +640,7 @@ async function registerSchema() {
       },
     };
     const data = await api('/api/apicurio/groups/default/artifacts', { method: 'POST', body: JSON.stringify(body) });
-    showOk('r-register', { status: 'Schema registrado com sucesso', artifact: data });
+    showOk('r-register', { status: 'Schema registrado com sucesso (estado limpo)', artifact: data });
   } catch (e) { showErr('r-register', e.message); }
 }
 
