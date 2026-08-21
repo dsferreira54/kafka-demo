@@ -238,24 +238,27 @@ const CF_BADGES = {
 
 function cfRow(confluent, redhat, badgeKey, note) {
   const [label, cls] = CF_BADGES[badgeKey] || CF_BADGES.partial;
-  return `<div class="cf-row">
-    <span class="cf-badge ${cls}">${label}</span>
-    <div class="cf-col flex-1">
-      <div class="cf-label">Confluent</div>
-      <div class="cf-text">${confluent}</div>
-    </div>
-    <div class="cf-col flex-1">
-      <div class="cf-label">Red Hat (esta POC)</div>
-      <div class="cf-text">${redhat}</div>
-    </div>
-  </div>${note ? `<div class="cf-note px-3">${note}</div>` : ''}`;
+  return `<div class="cf-item">
+    <div class="cf-item-head"><span class="cf-badge ${cls}">${label}</span></div>
+    <div class="cf-versus">
+      <div class="cf-side cf-side-left">
+        <div class="cf-side-icon">☁️ Confluent Cloud</div>
+        <div class="cf-side-text">${confluent}</div>
+      </div>
+      <div class="cf-arrow">⇄</div>
+      <div class="cf-side cf-side-right">
+        <div class="cf-side-icon">🎩 Red Hat (esta POC)</div>
+        <div class="cf-side-text">${redhat}</div>
+      </div>
+    </div>${note ? `\n    <div class="cf-note"><span>${note}</span></div>` : ''}
+  </div>`;
 }
 
 function confluentComparison(rows, summary) {
-  return `<div class="cf-card mt-5">
+  return `<div class="cf-card mt-6">
     <div class="cf-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/><path d="M18 3h3v3"/><path d="M10 14L21 3"/></svg>E no Confluent?</div>
-    <div class="divide-y divide-blue-100">${rows}</div>
-    ${summary ? `<p class="text-xs text-blue-900/70 leading-relaxed mt-3 pt-3 border-t border-blue-100">${summary}</p>` : ''}
+    ${rows}
+    ${summary ? `<div class="cf-summary">${summary}</div>` : ''}
   </div>`;
 }
 
