@@ -2,6 +2,7 @@
 
 let CFG = {};
 let step = 0;
+let _polls = [];
 
 const STEPS = [
   { t: 'Visão Geral',        s: 'Arquitetura e componentes' },
@@ -17,6 +18,24 @@ const STEPS = [
 ];
 
 const RENDERS = [renderOverview, renderKafka, renderTopics, renderPgCDC, renderOraCDC, renderSink, renderConnect, renderSchema, renderContracts, renderSummary];
+
+// ── Polling ──────────────────────────────────────────
+
+function stopPolls() { _polls.forEach(clearInterval); _polls = []; }
+function poll(fn, ms) { _polls.push(setInterval(fn, ms)); }
+
+const STEP_INIT = [
+  null,
+  () => { loadOrders(); poll(() => loadOrders(true), 3000); },
+  () => { listTopics(); describeTopic(); },
+  () => { cdcTable('pg'); poll(() => cdcTable('pg', true), 4000); },
+  () => { cdcTable('ora'); poll(() => cdcTable('ora', true), 4000); },
+  () => { sinkSource(); sinkDest(); sinkStatus(true); poll(() => { sinkSource(true); sinkDest(true); sinkStatus(true); }, 5000); },
+  () => { listConnectors(); poll(() => listConnectors(true), 5000); },
+  () => { listArtifacts(); },
+  null,
+  null,
+];
 
 // ── Helpers ──────────────────────────────────────────
 
@@ -51,11 +70,19 @@ function showTable(id, headers, rows) {
   if (!rows || !rows.length) return setHtml(id, '<p class="text-gray-500 italic text-sm py-2">Nenhum dado encontrado.</p>');
   const ths = headers.map(h => `<th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">${h}</th>`).join('');
   const trs = rows.map(r => `<tr class="hover:bg-gray-50">${r.map(c => `<td class="px-3 py-2 text-sm whitespace-nowrap">${c != null ? esc(String(c)) : '<span class="text-gray-300">null</span>'}</td>`).join('')}</tr>`).join('');
-  setHtml(id, `<div class="overflow-x-auto mt-3 rounded-lg border"><table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr>${ths}</tr></thead><tbody class="divide-y divide-gray-200">${trs}</tbody></table></div>`);
+  setHtml(id, `<div class="overflow-x-auto rounded-lg border"><table class="min-w-full divide-y divide-gray-200"><thead class="bg-gray-50"><tr>${ths}</tr></thead><tbody class="divide-y divide-gray-200">${trs}</tbody></table></div>`);
 }
 
 function card(title, body, extra = '') {
   return `<div class="bg-white rounded-xl shadow-md p-6 mb-5 ${extra}">${title ? `<h3 class="text-base font-semibold text-gray-800 mb-4">${title}</h3>` : ''}${body}</div>`;
+}
+
+function liveCard(title, body) {
+  return `<div class="bg-white rounded-xl shadow-md p-6 mb-5">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-base font-semibold text-gray-800">${title}</h3>
+      <span class="live-badge"><span class="live-dot"></span>Ao vivo</span>
+    </div>${body}</div>`;
 }
 
 function fNode(label, emoji, cls) {
@@ -153,9 +180,9 @@ function renderKafka() {
       ${res('r-send')}
     `)}
 
-    ${card('Pedidos Consumidos', `
-      <div class="flex items-center gap-3 mb-1">${sBtn('📥 Carregar Pedidos','loadOrders()')}<span id="r-count" class="text-xs text-gray-400"></span></div>
-      ${res('r-orders')}
+    ${liveCard('Pedidos Consumidos', `
+      <span id="r-count" class="text-xs text-gray-400 mb-2 block"></span>
+      <div id="r-orders"><div class="flex items-center gap-2 text-gray-400 text-sm py-3"><span class="spinner"></span> Carregando pedidos...</div></div>
     `)}
 
     ${tip('"O Producer é uma aplicação Quarkus que recebe pedidos via REST e publica no tópico <code>orders</code> do Kafka usando SmallRye Reactive Messaging. O Consumer consome do mesmo tópico e expõe via REST. Isso demonstra o padrão pub/sub: publisher → broker → subscriber."')}
@@ -169,8 +196,7 @@ function renderTopics() {
     <div><h2 class="text-2xl font-bold">Tópicos e Partições</h2><p class="text-gray-500 mt-1">Explorar os tópicos criados no cluster Kafka, incluindo tópicos de aplicação e tópicos de CDC.</p></div>
 
     ${card('Tópicos do Cluster', `
-      <div class="flex gap-2 mb-2">${pBtn('📋 Listar Tópicos','listTopics()')}</div>
-      ${res('r-topics')}
+      <div id="r-topics"><div class="flex items-center gap-2 text-gray-400 text-sm py-3"><span class="spinner"></span> Carregando tópicos...</div></div>
     `)}
 
     ${card('Detalhes do Tópico', `
@@ -178,7 +204,7 @@ function renderTopics() {
         ${inp('t-name','Nome do Tópico','orders','orders')}
         <div class="pb-0.5">${sBtn('🔍 Detalhar','describeTopic()')}</div>
       </div>
-      ${res('r-topic-detail')}
+      <div id="r-topic-detail"><div class="flex items-center gap-2 text-gray-400 text-sm py-3"><span class="spinner"></span> Carregando...</div></div>
     `)}
 
     ${tip('"Cada tópico é dividido em partições. As partições permitem paralelismo no consumo e distribuição de carga entre brokers. Mensagens com a mesma chave vão para a mesma partição, garantindo ordenação por chave. O fator de replicação define quantas cópias existem para alta disponibilidade."')}
@@ -188,7 +214,7 @@ function renderTopics() {
 // ── Generic CDC renderer ─────────────────────────────
 
 function cdcStep(opts) {
-  const { title, desc, dbLabel, dbEmoji, dbColor, apiBase, cdcTopic, tipText, extraButtons } = opts;
+  const { title, desc, dbLabel, dbEmoji, dbColor, apiBase, cdcTopic, tipText } = opts;
   return `<div class="space-y-5 fade-in">
     <div><h2 class="text-2xl font-bold">${title}</h2><p class="text-gray-500 mt-1">${desc}</p></div>
 
@@ -217,10 +243,8 @@ function cdcStep(opts) {
       ${res(`r-${apiBase}-mod`)}
     `)}
 
-    ${card('Dados Atuais', `
-      ${sBtn('🔄 Consultar Tabela',"cdcTable('" + apiBase + "')")}
-      ${extraButtons || ''}
-      ${res(`r-${apiBase}-table`)}
+    ${liveCard('Dados Atuais', `
+      <div id="r-${apiBase}-table"><div class="flex items-center gap-2 text-gray-400 text-sm py-3"><span class="spinner"></span> Carregando dados...</div></div>
     `)}
 
     ${card('Eventos CDC no Kafka', `
@@ -233,8 +257,6 @@ function cdcStep(opts) {
   </div>`;
 }
 
-// ── Step 3: PG CDC ───────────────────────────────────
-
 function renderPgCDC() {
   return cdcStep({
     title: 'CDC PostgreSQL',
@@ -244,8 +266,6 @@ function renderPgCDC() {
     tipText: '"O Debezium usa logical replication do PostgreSQL (pgoutput plugin) para capturar mudanças em tempo real. Cada operação no banco gera um evento com o tipo de operação (c=create, u=update, d=delete), os dados antes e depois, e metadados da origem."',
   });
 }
-
-// ── Step 4: Oracle CDC ───────────────────────────────
 
 function renderOraCDC() {
   return cdcStep({
@@ -265,19 +285,16 @@ function renderSink() {
 
     ${flowDiagram([['Oracle','🔶','bg-amber-50 border-amber-200'],['Debezium','🔄','bg-green-50 border-green-200'],['Kafka','📨','bg-red-50 border-red-200'],['JDBC Sink','⬇️','bg-teal-50 border-teal-200'],['PostgreSQL','🐘','bg-indigo-50 border-indigo-200']])}
 
-    ${card('Dados de Origem (Oracle → CUSTOMERS)', `
-      ${sBtn('🔶 Consultar Oracle','sinkSource()')}
-      ${res('r-sink-src')}
+    ${liveCard('Dados de Origem (Oracle → CUSTOMERS)', `
+      <div id="r-sink-src"><div class="flex items-center gap-2 text-gray-400 text-sm py-3"><span class="spinner"></span> Carregando...</div></div>
     `)}
 
-    ${card('Dados de Destino (PostgreSQL → oracle_customers)', `
-      ${sBtn('🐘 Consultar PostgreSQL','sinkDest()')}
-      ${res('r-sink-dst')}
+    ${liveCard('Dados de Destino (PostgreSQL → oracle_customers)', `
+      <div id="r-sink-dst"><div class="flex items-center gap-2 text-gray-400 text-sm py-3"><span class="spinner"></span> Carregando...</div></div>
     `)}
 
-    ${card('Status do Connector', `
-      ${sBtn('📊 Ver Status','sinkStatus()')}
-      ${res('r-sink-status')}
+    ${liveCard('Status do Connector', `
+      <div id="r-sink-status"><div class="flex items-center gap-2 text-gray-400 text-sm py-3"><span class="spinner"></span> Carregando...</div></div>
     `)}
 
     ${tip('"O JDBC Sink Connector do Debezium consome eventos CDC do tópico Oracle e os replica automaticamente numa tabela PostgreSQL. Isso demonstra o conceito de Sink Connector, análogo ao fluxo Kafka → Google Cloud Storage do ambiente real. O modo upsert garante idempotência: inserções e atualizações são tratadas corretamente."')}
@@ -292,9 +309,8 @@ function renderConnect() {
 
     ${flowDiagram([['Kafka Connect','🔌','bg-purple-50 border-purple-200'],['Connectors','🔗','bg-teal-50 border-teal-200'],['Tasks','⚙️','bg-gray-100 border-gray-300']])}
 
-    ${card('Conectores', `
-      ${pBtn('📋 Listar Conectores','listConnectors()')}
-      ${res('r-connectors')}
+    ${liveCard('Conectores', `
+      <div id="r-connectors"><div class="flex items-center gap-2 text-gray-400 text-sm py-3"><span class="spinner"></span> Carregando conectores...</div></div>
     `)}
 
     ${tip('"Kafka Connect é o framework de integração do Kafka. Ele gerencia Source Connectors (que trazem dados para o Kafka) e Sink Connectors (que levam dados do Kafka para fora). Cada connector pode ter múltiplas tasks executando em paralelo. O Strimzi operator gerencia o lifecycle dos connectors via KafkaConnector CRDs."')}
@@ -314,8 +330,7 @@ function renderSchema() {
     `)}
 
     ${card('Schemas Registrados', `
-      ${sBtn('📋 Listar Artifacts','listArtifacts()')}
-      ${res('r-artifacts')}
+      <div id="r-artifacts"><div class="flex items-center gap-2 text-gray-400 text-sm py-3"><span class="spinner"></span> Carregando schemas...</div></div>
     `)}
 
     ${card('Registrar Schema de Teste', `
@@ -404,32 +419,32 @@ async function sendOrder() {
     };
     const data = await api('/api/producer/orders', { method: 'POST', body: JSON.stringify(body) });
     showOk('r-send', data);
+    loadOrders(true);
   } catch (e) { showErr('r-send', e.message); }
 }
 
-async function loadOrders() {
-  showSpin('r-orders');
+async function loadOrders(silent = false) {
+  if (!silent) showSpin('r-orders');
   try {
     const data = await api('/api/consumer/orders');
     const rows = (Array.isArray(data) ? data : []).map(o => [o.orderId || '-', o.customerName, o.product, o.quantity, o.price]);
     showTable('r-orders', ['ID', 'Cliente', 'Produto', 'Qtd', 'Preço'], rows);
     setHtml('r-count', `${rows.length} pedido(s)`);
-  } catch (e) { showErr('r-orders', e.message); }
+  } catch (e) { if (!silent) showErr('r-orders', e.message); }
 }
 
 async function listTopics() {
-  showSpin('r-topics');
   try {
     const data = await api('/api/kafka/topics');
     const html = data.map(t => `<button onclick="document.getElementById('t-name').value='${t}';describeTopic()" class="block w-full text-left px-3 py-2 text-sm rounded hover:bg-gray-100 font-mono">${esc(t)}</button>`).join('');
-    setHtml('r-topics', `<div class="border rounded-lg divide-y max-h-64 overflow-y-auto mt-2">${html}</div>`);
+    setHtml('r-topics', `<div class="border rounded-lg divide-y max-h-64 overflow-y-auto">${html}</div>`);
   } catch (e) { showErr('r-topics', e.message); }
 }
 
 async function describeTopic() {
-  const name = $('t-name').value.trim();
+  const el = $('t-name');
+  const name = el ? el.value.trim() : '';
   if (!name) return;
-  showSpin('r-topic-detail');
   try {
     const d = await api(`/api/kafka/topics/${encodeURIComponent(name)}`);
     const parts = (d.partitions || []).map(p => [p.partitionId, p.leader, (p.replicas||[]).map(r=>r.nodeId).join(','), (p.isr||[]).map(r=>r.nodeId).join(',')]);
@@ -441,25 +456,17 @@ async function describeTopic() {
 
 // ── CDC helpers ──────────────────────────────────────
 
-function cdcSql(base) {
-  const upper = base === 'ora';
-  const q = v => upper ? `'${v}'` : `'${v}'`;
-  return { upper, q };
-}
-
 async function cdcInsert(base) {
   const rid = `r-${base}-insert`;
   showSpin(rid);
   try {
     const name = $(`${base}-name`).value, email = $(`${base}-email`).value, city = $(`${base}-city`).value;
-    let sql;
-    if (base === 'pg') {
-      sql = `INSERT INTO customers (name, email, city) VALUES ('${name}', '${email}', '${city}')`;
-    } else {
-      sql = `INSERT INTO CUSTOMERS (NAME, EMAIL, CITY) VALUES ('${name}', '${email}', '${city}')`;
-    }
+    const sql = base === 'pg'
+      ? `INSERT INTO customers (name, email, city) VALUES ('${name}', '${email}', '${city}')`
+      : `INSERT INTO CUSTOMERS (NAME, EMAIL, CITY) VALUES ('${name}', '${email}', '${city}')`;
     const data = await api(`/api/${base === 'pg' ? 'pg' : 'oracle'}/execute`, { method: 'POST', body: JSON.stringify({ sql }) });
     showOk(rid, { status: 'OK', ...data, sql });
+    cdcTable(base, true);
   } catch (e) { showErr(rid, e.message); }
 }
 
@@ -468,14 +475,12 @@ async function cdcUpdate(base) {
   showSpin(rid);
   try {
     const id = $(`${base}-upd-id`).value, field = $(`${base}-upd-field`).value, val = $(`${base}-upd-val`).value;
-    let sql;
-    if (base === 'pg') {
-      sql = `UPDATE customers SET ${field} = '${val}' WHERE id = ${id}`;
-    } else {
-      sql = `UPDATE CUSTOMERS SET ${field.toUpperCase()} = '${val}' WHERE ID = ${id}`;
-    }
+    const sql = base === 'pg'
+      ? `UPDATE customers SET ${field} = '${val}' WHERE id = ${id}`
+      : `UPDATE CUSTOMERS SET ${field.toUpperCase()} = '${val}' WHERE ID = ${id}`;
     const data = await api(`/api/${base === 'pg' ? 'pg' : 'oracle'}/execute`, { method: 'POST', body: JSON.stringify({ sql }) });
     showOk(rid, { status: 'OK', ...data, sql });
+    cdcTable(base, true);
   } catch (e) { showErr(rid, e.message); }
 }
 
@@ -487,19 +492,20 @@ async function cdcDelete(base) {
     const sql = base === 'pg' ? `DELETE FROM customers WHERE id = ${id}` : `DELETE FROM CUSTOMERS WHERE ID = ${id}`;
     const data = await api(`/api/${base === 'pg' ? 'pg' : 'oracle'}/execute`, { method: 'POST', body: JSON.stringify({ sql }) });
     showOk(rid, { status: 'OK', ...data, sql });
+    cdcTable(base, true);
   } catch (e) { showErr(rid, e.message); }
 }
 
-async function cdcTable(base) {
+async function cdcTable(base, silent = false) {
   const rid = `r-${base}-table`;
-  showSpin(rid);
+  if (!$(rid)) return;
   try {
     const data = await api(`/api/${base === 'pg' ? 'pg' : 'oracle'}/customers`);
     const headers = base === 'pg' ? ['id','name','email','city'] : ['ID','NAME','EMAIL','CITY'];
-    const keys = base === 'pg' ? ['id','name','email','city'] : ['ID','NAME','EMAIL','CITY'];
+    const keys = headers;
     const rows = data.map(r => keys.map(k => r[k]));
     showTable(rid, headers, rows);
-  } catch (e) { showErr(rid, e.message); }
+  } catch (e) { if (!silent) showErr(rid, e.message); }
 }
 
 async function cdcEvents(base, topic) {
@@ -522,41 +528,45 @@ async function cdcEvents(base, topic) {
 
 // ── Sink helpers ─────────────────────────────────────
 
-async function sinkSource() {
-  showSpin('r-sink-src');
+async function sinkSource(silent = false) {
+  const rid = 'r-sink-src';
+  if (!$(rid)) return;
   try {
     const data = await api('/api/oracle/customers');
     const rows = data.map(r => [r.ID, r.NAME, r.EMAIL, r.CITY]);
-    showTable('r-sink-src', ['ID','Nome','Email','Cidade'], rows);
-  } catch (e) { showErr('r-sink-src', e.message); }
+    showTable(rid, ['ID','Nome','Email','Cidade'], rows);
+  } catch (e) { if (!silent) showErr(rid, e.message); }
 }
 
-async function sinkDest() {
-  showSpin('r-sink-dst');
+async function sinkDest(silent = false) {
+  const rid = 'r-sink-dst';
+  if (!$(rid)) return;
   try {
     const data = await api('/api/pg/oracle-customers');
     const keys = data.length ? Object.keys(data[0]) : [];
     const rows = data.map(r => keys.map(k => r[k]));
-    showTable('r-sink-dst', keys, rows);
-  } catch (e) { showErr('r-sink-dst', e.message); }
+    showTable(rid, keys, rows);
+  } catch (e) { if (!silent) showErr(rid, e.message); }
 }
 
-async function sinkStatus() {
-  showSpin('r-sink-status');
+async function sinkStatus(silent = false) {
+  const rid = 'r-sink-status';
+  if (!$(rid)) return;
   try {
     const data = await api('/api/kafka-connect/connectors/jdbc-sink-oracle-to-pg/status');
-    showOk('r-sink-status', data);
-  } catch (e) { showErr('r-sink-status', e.message); }
+    showOk(rid, data);
+  } catch (e) { if (!silent) showErr(rid, e.message); }
 }
 
 // ── Connect helpers ──────────────────────────────────
 
-async function listConnectors() {
-  showSpin('r-connectors');
+async function listConnectors(silent = false) {
+  const rid = 'r-connectors';
+  if (!$(rid)) return;
   try {
     const data = await api('/api/kafka-connect/connectors');
     const names = Object.keys(data);
-    if (!names.length) return setHtml('r-connectors', '<p class="text-gray-500 italic text-sm">Nenhum connector encontrado.</p>');
+    if (!names.length) return setHtml(rid, '<p class="text-gray-500 italic text-sm">Nenhum connector encontrado.</p>');
     const html = names.map(name => {
       const info = data[name];
       const st = info.status || {};
@@ -571,8 +581,8 @@ async function listConnectors() {
         <span class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-${stColor}-100 text-${stColor}-700"><span class="w-2 h-2 rounded-full bg-${stColor}-500"></span>${connState}</span>
       </div>`;
     }).join('');
-    setHtml('r-connectors', `<div class="space-y-2 mt-2">${html}</div>`);
-  } catch (e) { showErr('r-connectors', e.message); }
+    setHtml(rid, `<div class="space-y-2">${html}</div>`);
+  } catch (e) { if (!silent) showErr(rid, e.message); }
 }
 
 // ── Schema / Data Contract helpers ───────────────────
@@ -614,20 +624,20 @@ const ORDER_SCHEMA_BAD = {
 };
 
 async function listArtifacts() {
-  showSpin('r-artifacts');
+  const rid = 'r-artifacts';
+  if (!$(rid)) return;
   try {
     const data = await api('/api/apicurio/search/artifacts?limit=50');
     const artifacts = data.artifacts || [];
-    if (!artifacts.length) return setHtml('r-artifacts', '<p class="text-gray-500 italic text-sm">Nenhum artifact registrado.</p>');
+    if (!artifacts.length) return setHtml(rid, '<p class="text-gray-500 italic text-sm">Nenhum artifact registrado.</p>');
     const rows = artifacts.map(a => [a.artifactId, a.artifactType, a.name || '-', a.createdOn?.split('T')[0] || '-']);
-    showTable('r-artifacts', ['Artifact ID', 'Tipo', 'Nome', 'Criado em'], rows);
-  } catch (e) { showErr('r-artifacts', e.message); }
+    showTable(rid, ['Artifact ID', 'Tipo', 'Nome', 'Criado em'], rows);
+  } catch (e) { showErr(rid, e.message); }
 }
 
 async function registerSchema() {
   showSpin('r-register');
   try {
-    // Clean up existing artifact for repeatable demos
     await fetch('/api/apicurio/groups/default/artifacts/demo-order', { method: 'DELETE' }).catch(() => {});
     const body = {
       artifactId: 'demo-order',
@@ -641,6 +651,7 @@ async function registerSchema() {
     };
     const data = await api('/api/apicurio/groups/default/artifacts', { method: 'POST', body: JSON.stringify(body) });
     showOk('r-register', { status: 'Schema registrado com sucesso (estado limpo)', artifact: data });
+    listArtifacts();
   } catch (e) { showErr('r-register', e.message); }
 }
 
@@ -706,6 +717,7 @@ async function addMetadata() {
 // ── Navigation ───────────────────────────────────────
 
 function goTo(i) {
+  stopPolls();
   step = Math.max(0, Math.min(STEPS.length - 1, i));
   $('step-content').innerHTML = RENDERS[step]();
   renderNav();
@@ -713,6 +725,9 @@ function goTo(i) {
   $('btn-prev').style.visibility = step === 0 ? 'hidden' : 'visible';
   $('btn-next').textContent = step === STEPS.length - 1 ? 'Concluir ✓' : 'Próximo →';
   $('step-content').parentElement.scrollTop = 0;
+
+  const init = STEP_INIT[step];
+  if (init) setTimeout(init, 80);
 }
 
 function nextStep() { if (step < STEPS.length - 1) goTo(step + 1); }
